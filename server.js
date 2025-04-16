@@ -28,6 +28,7 @@ app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
       'http://localhost:3000',
+      'https://tvtasks.netlify.app',
       'https://client-seven-ruby.vercel.app',
       'https://client-santhoshsekar999-gmailcoms-projects.vercel.app'
     ];
