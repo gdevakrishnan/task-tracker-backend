@@ -41,7 +41,7 @@ const getAllComments = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is missing, login again.');
   }
 
   const comments = await Comment.find({ subdomain })
@@ -78,12 +78,12 @@ const createComment = asyncHandler(async (req, res) => {
   // Validate input
   if (!text) {
     res.status(400);
-    throw new Error('Comment text is required');
+    throw new Error('Comment text is missing');
   }
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is missing check the URL.');
+    throw new Error('Company name is missing, login again.');
   }
 
   try {

@@ -15,7 +15,7 @@ const replySchema = mongoose.Schema({
   },
   subdomain: {
     type: String,
-    required: [true, 'Subdomain is missing']
+    required: [true, 'Company name is missing']
   }
 }, {
   timestamps: true
@@ -29,7 +29,7 @@ const commentSchema = mongoose.Schema({
   },
   subdomain: {
     type: String,
-    required: [true, 'Subdomain is missing']
+    required: [true, 'Company name is missing']
   },
   text: {
     type: String,

@@ -21,23 +21,25 @@ const subdomainAvailable = asyncHandler(async (req, res) => {
   // Validate input
   if (!subdomain) {
     res.status(400).json({ available: false, message: 'Subdomain must be minium 5 characters' });
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is required, login again');
   }
 
   // Check subdomain length and allowed characters
-  const isValidSubdomain = /^[a-zA-Z0-9-]{5,}$/.test(subdomain) && !subdomain.startsWith('-') && !subdomain.endsWith('-');
+  const isValidSubdomain = /^[a-zA-Z-]{5,}$/.test(subdomain) &&
+    !subdomain.startsWith('-') &&
+    !subdomain.endsWith('-');
   if (!isValidSubdomain) {
     res.status(400);
-    throw new Error('Subdomain must be at least 5 characters long and can only contain letters, numbers, and hyphens (-), but cannot start or end with a hyphen');
+    throw new Error('Company name must be at least 5 characters long and can only contain letters, numbers, and hyphens (-), but cannot start or end with a hyphen');
   }
 
   // Check if subdomain exists
   const subdomainExists = await Admin.findOne({ subdomain });
 
   if (subdomainExists) {
-    res.json({ available: false, message: 'Subdomain is already taken' });
+    res.json({ available: false, message: 'Company name is already taken' });
   } else {
-    res.json({ available: true, message: 'Subdomain is available' });
+    res.json({ available: true, message: 'Company name is available' });
   }
 });
 
@@ -60,15 +62,15 @@ const registerAdmin = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error('Admin already exists');
   }
-  
+
   // check if subdomain exixts
   const subdomainExists = await Admin.findOne({ subdomain });
 
   if (subdomainExists) {
     res.status(400);
-    throw new Error('Subdomain already exists');
+    throw new Error('Company name already exists');
   }
-  
+
   // Hash password
   const salt = await bcrypt.genSalt(10);
   const hashedPassword = await bcrypt.hash(password, salt);
@@ -134,14 +136,14 @@ const getMe = asyncHandler(async (req, res) => {
 // @access  Public
 const checkAdminInitialization = asyncHandler(async (req, res) => {
   const adminCount = await Admin.countDocuments();
-  
+
   if (adminCount === 0) {
-    res.json({ 
+    res.json({
       needInitialAdmin: true,
       message: 'No admin exists. First admin can be created.'
     });
   } else {
-    res.json({ 
+    res.json({
       needInitialAdmin: false,
       message: 'Admins already exist.'
     });
@@ -154,14 +156,14 @@ const checkAdminInitialization = asyncHandler(async (req, res) => {
 // @access  Public
 const loginWorker = asyncHandler(async (req, res) => {
   const { username, password, subdomain } = req.body;
-  
+
   const worker = await Worker.findOne({ username, subdomain }).populate('department', 'name');
 
   if (!worker) {
     res.status(401);
-    throw new Error("Worker not found, check your subdomain.");
+    throw new Error("Worker not found, check your Company name.");
   }
-  
+
   if (worker && (await bcrypt.compare(password, worker.password))) {
     res.json({
       _id: worker._id,

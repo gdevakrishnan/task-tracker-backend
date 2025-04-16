@@ -24,7 +24,7 @@ const workerSchema = mongoose.Schema({
   },
   subdomain: {  // subdomain is an unique key of a company for handling the workers
     type: String,
-    required: [true, 'Subdomain is missing'],
+    required: [true, 'Company name is missing'],
   },
   password: {
     type: String,

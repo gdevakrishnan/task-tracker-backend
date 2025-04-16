@@ -14,7 +14,7 @@ const getLeaves = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error("Subdomain is missing check the URL.");
+    throw new Error("Company name is missing, login again.");
   }
 
   let leaves;
@@ -58,7 +58,7 @@ const createLeave = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain === 'main') {
     res.status(400);
-    throw new Error('Subdomain is missing, check the URL.');
+    throw new Error('Company name is required, login again.');
   }
 
   if (!leaveType || !startDate || !endDate || !totalDays || !reason) {

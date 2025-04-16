@@ -119,7 +119,7 @@ const resetAllTasks = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Please provide a subdomain');
+    throw new Error('Company name is missing, login again.');
   }
 
   // Delete all tasks for the given subdomain

@@ -8,7 +8,7 @@ const leaveSchema = mongoose.Schema({
   },
   subdomain: {
     type: String,
-    required: [true, 'Subdomain is missing']
+    required: [true, 'Company name is missing']
   },
   leaveType: {
     type: String,

@@ -64,7 +64,7 @@ const createWorker = asyncHandler(async (req, res) => {
 
     if (!subdomain) {
       res.status(400);
-      throw new Error('Subdomain was missing, check the url');
+      throw new Error('Company name is required, login again.');
     }
  
     if (!password) {

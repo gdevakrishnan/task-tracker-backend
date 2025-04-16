@@ -11,11 +11,9 @@ const createDepartment = asyncHandler(async (req, res) => {
     throw new Error('Department name must be at least 2 characters long');
   }
 
-  console.log("subdomain server", subdomain);
-
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is missing, check the URL from server.');
+    throw new Error('Company name is missing, login again.');
   }
 
   try {
@@ -25,7 +23,7 @@ const createDepartment = asyncHandler(async (req, res) => {
   
     if (existingDepartment) {
       res.status(400);
-      throw new Error('Department with this name already exists in this subdomain.');
+      throw new Error('Department with this name already exists.');
     }
 
     // Create department with exact case preservation

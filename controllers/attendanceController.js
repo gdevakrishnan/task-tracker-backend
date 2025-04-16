@@ -11,7 +11,7 @@ const putAttendance = async (req, res) => {
 
         if (!subdomain || subdomain === 'main') {
             res.status(401);
-            throw new Error('Subdomain is missing, check');
+            throw new Error('Company name is missing, login again');
         }
 
         if (!rfid || rfid === '') {
@@ -19,7 +19,7 @@ const putAttendance = async (req, res) => {
             throw new Error('RFID is required');
         }
 
-        // Check if the worker exists in the Worker model
+        // login again if the worker exists in the Worker model
         const worker = await Worker.findOne({ subdomain, rfid });
         if (!worker) {
             res.status(404);
@@ -44,7 +44,7 @@ const putAttendance = async (req, res) => {
         const currentDate = indiaTimezone.format(new Date());
         const currentTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
 
-        // Check if this is the first attendance for the worker on the current date
+        // login again if this is the first attendance for the worker on the current date
         const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ createdAt: -1 });
 
         let presence = true;
@@ -88,7 +88,7 @@ const getAttendance = async (req, res) => {
 
         if (!subdomain || subdomain == 'main') {
             res.status(401);
-            throw new Error('Subdomain is missing, check');
+            throw new Error('Company name is missing, login again');
         }
 
         const attendanceData = await Attendance.find({ subdomain });
@@ -109,7 +109,7 @@ const getWorkerAttendance = async (req, res) => {
 
         if (!subdomain || subdomain == 'main') {
             res.status(401);
-            throw new Error('Subdomain is missing, check');
+            throw new Error('Company name is missing, login again');
         }
 
         if (!rfid || rfid == '') {

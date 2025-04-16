@@ -10,7 +10,7 @@ const getTodayRequests = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is missing, login again.');
   }
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -35,7 +35,7 @@ const submitFoodRequest = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is missing, login again.');
   }
 
   const settings = await Settings.findOne({ subdomain }) || await Settings.create({ subdomain });
@@ -89,7 +89,7 @@ const toggleFoodRequests = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is missing, login again.');
   }
 
   const settings = await Settings.findOne({ subdomain }) || await Settings.create({ subdomain });
@@ -109,7 +109,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   if (!subdomain || subdomain == 'main') {
     res.status(400);
-    throw new Error('Subdomain is required');
+    throw new Error('Company name is missing, login again.');
   }
 
   const settings = await Settings.findOne({ subdomain });

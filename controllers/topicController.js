@@ -9,7 +9,7 @@ const getTopics = asyncHandler(async (req, res) => {
 
   if(!subdomain || subdomain == 'main') {
     res.status(401);
-    throw new Error ('Subdomain is missing, check the URL.');
+    throw new Error ('Company name is missing, login again.');
   }
 
   const topics = await Topic.find({ subdomain }).sort({ department: 1, name: 1 });
