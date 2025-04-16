@@ -16,7 +16,6 @@ const attendanceSchema = mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Please add an email'],
-        unique: true,
         match: [/.+@.+\..+/, 'Please add a valid email']
     },
     subdomain: {

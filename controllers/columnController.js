@@ -17,7 +17,7 @@ const createColumn = asyncHandler(async (req, res) => {
   const { name, department, subdomain } = req.body;
 
   // Check if column exists
-  const columnExists = await Column.findOne({ name, subdomain });
+  const columnExists = await Column.findOne({ name });
 
   if (columnExists) {
     res.status(400);

@@ -19,6 +19,15 @@ const createDepartment = asyncHandler(async (req, res) => {
   }
 
   try {
+    const existingDepartment = await Department.findOne({ 
+      name: name.trim()
+    });
+  
+    if (existingDepartment) {
+      res.status(400);
+      throw new Error('Department with this name already exists in this subdomain.');
+    }
+
     // Create department with exact case preservation
     const department = new Department({ name, subdomain });
     
