@@ -24,7 +24,7 @@ const getTodayRequests = asyncHandler(async (req, res) => {
       $gte: today,
       $lt: tomorrow
     }
-  }).populate('worker', 'name rfid department').populate('department', 'name');
+  }).populate('worker', 'name rfid department').populate('department', 'name', 'photo');
   res.status(200).json(requests);
 });
 
