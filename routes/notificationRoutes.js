@@ -9,7 +9,7 @@ const {
 const { protect } = require('../middleware/authMiddleware');
 
 // Public route to get notifications by subdomain
-router.get('/', readNotification);
+router.get('/:subdomain', readNotification);
 
 // Admin-protected routes
 router.post('/', protect, createNotification);

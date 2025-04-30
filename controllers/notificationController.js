@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const Notification = require('../models/notificationModel');
+const Notification = require('../models/Notification');
 
 // @desc    Create a new notification
 // @route   POST /api/notifications
@@ -26,7 +26,7 @@ const createNotification = asyncHandler(async (req, res) => {
 // @route   GET /api/notifications
 // @access  Public
 const readNotification = asyncHandler(async (req, res) => {
-  const { subdomain } = req.body;
+  const { subdomain } = req.params;
 
   if (!subdomain) {
     res.status(400);
@@ -34,8 +34,7 @@ const readNotification = asyncHandler(async (req, res) => {
   }
 
   const notifications = await Notification.find({ subdomain }).sort({ createdAt: -1 });
-
-  res.json(notifications);
+  return res.status(200).json({notifications});
 });
 
 // @desc    Update a notification by ID
