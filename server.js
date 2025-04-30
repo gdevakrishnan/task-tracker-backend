@@ -17,6 +17,7 @@ const leaveRoutes = require('./routes/leaveRoutes');
 const columnRoutes = require('./routes/columnRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const foodRequestRoutes = require('./routes/foodRequestRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 
 // Load env vars
 dotenv.config();
@@ -64,6 +65,7 @@ app.use('/api/leaves', leaveRoutes);
 app.use('/api/columns', columnRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/food-requests', foodRequestRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Route for checking API status
 app.get('/', (req, res) => {
