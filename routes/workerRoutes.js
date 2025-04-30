@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const multer = require('multer'); 
-const upload = multer({ dest: 'uploads/' });
+
 const { 
   getWorkers, 
   createWorker, 
@@ -14,14 +13,14 @@ const {
 } = require('../controllers/workerController');
 const { protect, adminOnly, adminOrWorker } = require('../middleware/authMiddleware');
 
-router.route('/').post(protect, adminOnly, upload.single('photo'), createWorker); // Remove adminOnly for now
+router.route('/').post(protect, adminOnly, createWorker); // Remove adminOnly for now
 router.route('/all').post(protect, adminOrWorker, getWorkers);
 
 router.post('/public', getPublicWorkers);
   
 router.route('/:id')
   .get(protect, getWorkerById)
-  .put(protect, adminOnly, upload.single('photo'), updateWorker)
+  .put(protect, adminOnly, updateWorker)
   .delete(protect, adminOnly, deleteWorker);
 
 router.route('/:id/activities')

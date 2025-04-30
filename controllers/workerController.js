@@ -39,24 +39,24 @@ const generateUniqueRFID = async () => {
 const createWorker = asyncHandler(async (req, res) => {
   try {
     // Trim and validate name with extra checks
-    const name = req.body.name && typeof req.body.name === 'string' 
-      ? req.body.name.trim() 
-      : '';
+    const name = req.body.name ? req.body.name.trim() : '';
     const username = req.body.username ? req.body.username.trim() : '';
     const password = req.body.password ? req.body.password.trim() : '';
     const subdomain = req.body.subdomain ? req.body.subdomain.trim() : '';
     const email = req.body.email ? req.body.email.trim() : '';
-    const department = req.body.department;
-    const photo = req.file ? req.file.filename : '';
+    const department = req.body.department ? req.body.department.trim() : '';
+    const photo = req.body.photo ? req.body.photo.trim() : '';
+
 
     const rfid = await generateUniqueRFID();
- 
+
+
     // Comprehensive server-side validation
     if (!name || name.length === 0) {
       res.status(400);
       throw new Error('Name is required and cannot be empty');
     }
- 
+
     if (!username) {
       res.status(400);
       throw new Error('Username is required and cannot be empty');
@@ -66,12 +66,12 @@ const createWorker = asyncHandler(async (req, res) => {
       res.status(400);
       throw new Error('Company name is required, login again.');
     }
- 
+
     if (!password) {
       res.status(400);
       throw new Error('Password is required and cannot be empty');
     }
- 
+
     if (!department) {
       res.status(400);
       throw new Error('Department is required');
@@ -83,25 +83,25 @@ const createWorker = asyncHandler(async (req, res) => {
       res.status(400);
       throw new Error('Worker with this email already exists');
     }
- 
+
     // Check if worker exists
     const workerExists = await Worker.findOne({ username });
     if (workerExists) {
       res.status(400);
       throw new Error('Worker with this username already exists');
     }
- 
+
     // Validate department
     const departmentDoc = await Department.findById(department);
     if (!departmentDoc) {
       res.status(400);
       throw new Error('Invalid department');
     }
- 
+
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
- 
+
     // Create worker
     const worker = await Worker.create({
       name,
@@ -139,18 +139,18 @@ const createWorker = asyncHandler(async (req, res) => {
       <p>Best regards,<br/>The ${subdomain} Team</p>
       `,
       attachments: [
-      {
-        filename: 'qr-code.png',
-        content: qrCodeDataUrl.split('base64,')[1],
-        encoding: 'base64',
-        cid: 'qrCodeImage', // Content ID for inline image
-      },
+        {
+          filename: 'qr-code.png',
+          content: qrCodeDataUrl.split('base64,')[1],
+          encoding: 'base64',
+          cid: 'qrCodeImage', // Content ID for inline image
+        },
       ],
     };
 
     // Send the email
     await transporter.sendMail(mailOptions);
- 
+
     res.status(201).json({
       _id: worker._id,
       name: worker.name,
@@ -161,29 +161,29 @@ const createWorker = asyncHandler(async (req, res) => {
       department: departmentDoc.name,
       photo: worker.photo
     });
- 
+
   } catch (error) {
     console.error('Worker Creation Error:', error);
     res.status(400);
     throw new Error(error.message || 'Failed to create worker');
   }
- });
+});
 
 // @desc    Get all workers
 // @route   GET /api/workers
 // @access  Private/Admin
 const getWorkers = asyncHandler(async (req, res) => {
   try {
-    const workers = await Worker.find({subdomain: req.body.subdomain})
+    const workers = await Worker.find({ subdomain: req.body.subdomain })
       .select('-password')
       .populate('department', 'name');
-    
+
     // Transform workers to include department name and full photo URL
     const transformedWorkers = workers.map(worker => ({
       ...worker.toObject(),
       department: worker.department ? worker.department.name : 'Unassigned',
-      photoUrl: worker.photo 
-        ? `/uploads/${worker.photo}` 
+      photoUrl: worker.photo
+        ? `/uploads/${worker.photo}`
         : `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}`
     }));
 
@@ -199,7 +199,7 @@ const getPublicWorkers = asyncHandler(async (req, res) => {
     const workers = await Worker.find({ subdomain: req.body.subdomain })
       .select('name username subdomain department photo')
       .populate('department', 'name');
-    
+
     const transformedWorkers = workers.map(worker => ({
       _id: worker._id,
       name: worker.name,
@@ -224,7 +224,7 @@ const getWorkerById = asyncHandler(async (req, res) => {
     const worker = await Worker.findById(req.params.id)
       .select('-password')
       .populate('department', 'name');
-    
+
     if (!worker) {
       res.status(404);
       throw new Error('Worker not found');
@@ -244,7 +244,7 @@ const getWorkerById = asyncHandler(async (req, res) => {
 const updateWorker = asyncHandler(async (req, res) => {
   try {
     const worker = await Worker.findById(req.params.id);
-    
+
     if (!worker) {
       res.status(404);
       throw new Error('Worker not found');
@@ -267,9 +267,9 @@ const updateWorker = asyncHandler(async (req, res) => {
     if (name) updateData.name = name;
     if (username) {
       // Check if username is unique
-      const usernameExists = await Worker.findOne({ 
-        username, 
-        _id: { $ne: req.params.id } 
+      const usernameExists = await Worker.findOne({
+        username,
+        _id: { $ne: req.params.id }
       });
       if (usernameExists) {
         res.status(400);
@@ -279,8 +279,8 @@ const updateWorker = asyncHandler(async (req, res) => {
     }
 
     // Handle photo upload
-    if (req.file) {
-      updateData.photo = req.file.filename;
+    if (photo) {
+      updateData.photo = photo;
     }
 
     // Handle password update
@@ -291,8 +291,8 @@ const updateWorker = asyncHandler(async (req, res) => {
 
     // Update worker
     const updatedWorker = await Worker.findByIdAndUpdate(
-      req.params.id, 
-      updateData, 
+      req.params.id,
+      updateData,
       { new: true, runValidators: true }
     ).populate('department', 'name');
 
@@ -315,7 +315,7 @@ const updateWorker = asyncHandler(async (req, res) => {
 const deleteWorker = asyncHandler(async (req, res) => {
   try {
     const worker = await Worker.findById(req.params.id);
-    
+
     if (!worker) {
       res.status(404);
       throw new Error('Worker not found');
@@ -347,7 +347,7 @@ const getWorkerActivities = asyncHandler(async (req, res) => {
       .populate('topics', 'name points')
       .populate('department', 'name')
       .sort({ createdAt: -1 });
-    
+
     res.json(tasks);
   } catch (error) {
     console.error('Get Worker Activities Error:', error);
@@ -362,7 +362,7 @@ const getWorkerActivities = asyncHandler(async (req, res) => {
 const resetWorkerActivities = asyncHandler(async (req, res) => {
   try {
     const worker = await Worker.findById(req.params.id);
-    
+
     if (!worker) {
       res.status(404);
       throw new Error('Worker not found');
@@ -370,7 +370,7 @@ const resetWorkerActivities = asyncHandler(async (req, res) => {
 
     // Delete all tasks for this worker
     await Task.deleteMany({ worker: req.params.id });
-    
+
     // Reset worker points
     worker.totalPoints = 0;
     worker.topicPoints = {};
@@ -393,7 +393,7 @@ const getWorkersByDepartment = asyncHandler(async (req, res) => {
     const workers = await Worker.find({ department: req.params.departmentId })
       .select('-password')
       .populate('department', 'name');
-    
+
     res.json(workers);
   } catch (error) {
     console.error('Get Workers by Department Error:', error);
@@ -411,5 +411,5 @@ module.exports = {
   getWorkerActivities,
   resetWorkerActivities,
   getWorkersByDepartment,
-  getPublicWorkers  
+  getPublicWorkers
 };
