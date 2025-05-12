@@ -30,7 +30,7 @@ const createWorker = asyncHandler(async (req, res) => {
       throw new Error('Minimum salary is required and cannot be empty');
     }
 
-    perDaySalary = salary / 9;
+    perDaySalary = salary / 30;
 
     // Comprehensive server-side validation
     if (!name || name.length === 0) {
@@ -253,7 +253,7 @@ const getWorkerById = asyncHandler(async (req, res) => {
   }
 });
 
-// @desc    Update worker
+// @desc    Update worker 
 // @route   PUT /api/workers/:id
 // @access  Private/Admin
 const updateWorker = asyncHandler(async (req, res) => {
@@ -265,7 +265,7 @@ const updateWorker = asyncHandler(async (req, res) => {
       throw new Error('Worker not found');
     }
 
-    const { name, username, department, password, photo } = req.body;
+    const { name, username, salary, department, password, photo } = req.body;
     const updateData = {};
 
     // Validate department if provided
@@ -278,10 +278,11 @@ const updateWorker = asyncHandler(async (req, res) => {
       updateData.department = department;
     }
 
-    // Update fields
+    // Update name if provided
     if (name) updateData.name = name;
+
+    // Update username if provided and ensure uniqueness
     if (username) {
-      // Check if username is unique
       const usernameExists = await Worker.findOne({
         username,
         _id: { $ne: req.params.id }
@@ -293,7 +294,7 @@ const updateWorker = asyncHandler(async (req, res) => {
       updateData.username = username;
     }
 
-    // Handle photo upload
+    // Update photo if provided
     if (photo) {
       updateData.photo = photo;
     }
@@ -304,7 +305,20 @@ const updateWorker = asyncHandler(async (req, res) => {
       updateData.password = await bcrypt.hash(password, salt);
     }
 
-    // Update worker
+    // Update salary-related fields if salary is provided
+    if (salary) {
+      const numericSalary = Number(salary);
+      if (isNaN(numericSalary) || numericSalary <= 0) {
+        res.status(400);
+        throw new Error('Invalid salary value');
+      }
+
+      updateData.salary = numericSalary;
+      updateData.finalSalary = numericSalary;
+      updateData.perDaySalary = numericSalary / 30;
+    }
+
+    // Perform the update
     const updatedWorker = await Worker.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -315,6 +329,9 @@ const updateWorker = asyncHandler(async (req, res) => {
       _id: updatedWorker._id,
       name: updatedWorker.name,
       username: updatedWorker.username,
+      salary: updatedWorker.salary,
+      perDaySalary: updatedWorker.perDaySalary,
+      finalSalary: updatedWorker.finalSalary,
       department: updatedWorker.department.name,
       photo: updatedWorker.photo
     });
@@ -324,6 +341,7 @@ const updateWorker = asyncHandler(async (req, res) => {
     throw new Error(error.message || 'Failed to update worker');
   }
 });
+
 // @desc    Delete worker
 // @route   DELETE /api/workers/:id
 // @access  Private/Admin
