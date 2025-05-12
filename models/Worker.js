@@ -16,13 +16,7 @@ const workerSchema = mongoose.Schema({
     required: [true, 'RFID is missing'],
     unique: true
   },
-  email: {
-    type: String,
-    required: [true, 'Please add an email'],
-    unique: true,
-    match: [/.+@.+\..+/, 'Please add a valid email']
-  },
-  subdomain: {  // subdomain is an unique key of a company for handling the workers
+  subdomain: {
     type: String,
     required: [true, 'Company name is missing'],
   },
@@ -50,6 +44,18 @@ const workerSchema = mongoose.Schema({
   lastSubmission: {
     type: Object,
     default: {}
+  },
+  salary: {
+    type: Number,
+    default: 0
+  },
+  finalSalary: {
+    type: Number,
+    default: 0
+  },
+  perDaySalary: {
+    type: Number,
+    default: 0
   }
 }, {
   timestamps: true

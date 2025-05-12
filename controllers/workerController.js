@@ -5,33 +5,8 @@ const Department = require('../models/Department');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
-const nodemailer = require('nodemailer');
-const QRCode = require('qrcode');
-
-// Generate an unique RFID
-const generateUniqueRFID = async () => {
-  const generateRFID = () => {
-    const letters = String.fromCharCode(
-      65 + Math.floor(Math.random() * 26),
-      65 + Math.floor(Math.random() * 26)
-    );
-    const numbers = Math.floor(1000 + Math.random() * 9000).toString();
-    return `${letters}${numbers}`;
-  };
-
-  let rfid;
-  let isUnique = false;
-
-  while (!isUnique) {
-    rfid = generateRFID();
-    const existingWorker = await Worker.findOne({ rfid });
-    if (!existingWorker) {
-      isUnique = true;
-    }
-  }
-
-  return rfid;
-};
+// const nodemailer = require('nodemailer');
+// const QRCode = require('qrcode');
 
 // @desc    Create new worker
 // @route   POST /api/workers
@@ -41,15 +16,21 @@ const createWorker = asyncHandler(async (req, res) => {
     // Trim and validate name with extra checks
     const name = req.body.name ? req.body.name.trim() : '';
     const username = req.body.username ? req.body.username.trim() : '';
+    const rfid = req.body.rfid ? req.body.rfid.trim() : '';
+    const salary = req.body.salary ? Number(req.body.salary.trim()) : '';
+    const finalSalary = req.body.salary ? Number(req.body.salary.trim()) : '';
     const password = req.body.password ? req.body.password.trim() : '';
     const subdomain = req.body.subdomain ? req.body.subdomain.trim() : '';
-    const email = req.body.email ? req.body.email.trim() : '';
     const department = req.body.department ? req.body.department.trim() : '';
     const photo = req.body.photo ? req.body.photo.trim() : '';
+    let perDaySalary = 0;
 
+    if (salary <= 0) {
+      res.status(400);
+      throw new Error('Minimum salary is required and cannot be empty');
+    }
 
-    const rfid = await generateUniqueRFID();
-
+    perDaySalary = salary / 9;
 
     // Comprehensive server-side validation
     if (!name || name.length === 0) {
@@ -78,13 +59,6 @@ const createWorker = asyncHandler(async (req, res) => {
     }
 
     // Check if worker exists
-    const emailExists = await Worker.findOne({ email });
-    if (emailExists) {
-      res.status(400);
-      throw new Error('Worker with this email already exists');
-    }
-
-    // Check if worker exists
     const workerExists = await Worker.findOne({ username });
     if (workerExists) {
       res.status(400);
@@ -107,7 +81,9 @@ const createWorker = asyncHandler(async (req, res) => {
       name,
       username,
       rfid,
-      email,
+      salary,
+      finalSalary,
+      perDaySalary,
       subdomain,
       password: hashedPassword,
       department: departmentDoc._id,
@@ -115,48 +91,50 @@ const createWorker = asyncHandler(async (req, res) => {
       totalPoints: 0
     });
 
-    // Generate QR code for the RFID
-    const qrCodeDataUrl = await QRCode.toDataURL(rfid);
+    // // Generate QR code for the RFID
+    // const qrCodeDataUrl = await QRCode.toDataURL(rfid);
 
-    // Configure the email transporter
-    const transporter = nodemailer.createTransport({
-      service: 'gmail', // Use your email service provider
-      auth: {
-        user: process.env.EMAIL_USER, // Your email address
-        pass: process.env.EMAIL_PASS, // Your email password or app-specific password
-      },
-    });
+    // // Configure the email transporter
+    // const transporter = nodemailer.createTransport({
+    //   service: 'gmail', // Use your email service provider
+    //   auth: {
+    //     user: process.env.EMAIL_USER, // Your email address
+    //     pass: process.env.EMAIL_PASS, // Your email password or app-specific password
+    //   },
+    // });
 
-    // Email content
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: `Welcome to ${subdomain}!`,
-      html: `
-      <h1>Welcome to ${subdomain}, ${name}!</h1>
-      <p>We are excited to have you on board. Your unique RFID QR code: <b>${rfid}</b></p>
-      <p>Please keep this QR code safe as it will be used for identification purposes.</p>
-      <p>Best regards,<br/>The ${subdomain} Team</p>
-      `,
-      attachments: [
-        {
-          filename: 'qr-code.png',
-          content: qrCodeDataUrl.split('base64,')[1],
-          encoding: 'base64',
-          cid: 'qrCodeImage', // Content ID for inline image
-        },
-      ],
-    };
+    // // Email content
+    // const mailOptions = {
+    //   from: process.env.EMAIL_USER,
+    //   to: email,
+    //   subject: `Welcome to ${subdomain}!`,
+    //   html: `
+    //   <h1>Welcome to ${subdomain}, ${name}!</h1>
+    //   <p>We are excited to have you on board. Your unique RFID QR code: <b>${rfid}</b></p>
+    //   <p>Please keep this QR code safe as it will be used for identification purposes.</p>
+    //   <p>Best regards,<br/>The ${subdomain} Team</p>
+    //   `,
+    //   attachments: [
+    //     {
+    //       filename: 'qr-code.png',
+    //       content: qrCodeDataUrl.split('base64,')[1],
+    //       encoding: 'base64',
+    //       cid: 'qrCodeImage', // Content ID for inline image
+    //     },
+    //   ],
+    // };
 
-    // Send the email
-    await transporter.sendMail(mailOptions);
+    // // Send the email
+    // await transporter.sendMail(mailOptions);
 
     res.status(201).json({
       _id: worker._id,
       name: worker.name,
       username: worker.username,
+      salary: worker.salary,
+      finalSalary: worker.finalSalary,
+      perDaySalary: worker.perDaySalary,
       rfid: worker.rfid,
-      email: worker.email,
       subdomain: worker.subdomain,
       department: departmentDoc.name,
       photo: worker.photo
@@ -167,6 +145,43 @@ const createWorker = asyncHandler(async (req, res) => {
     res.status(400);
     throw new Error(error.message || 'Failed to create worker');
   }
+});
+
+// Generate an unique RFID
+const generateUniqueRFID = async () => {
+  const generateRFID = () => {
+    const letters = String.fromCharCode(
+      65 + Math.floor(Math.random() * 26),
+      65 + Math.floor(Math.random() * 26)
+    );
+    const numbers = Math.floor(1000 + Math.random() * 9000).toString();
+    return `${letters}${numbers}`;
+  };
+
+  let rfid;
+  let isUnique = false;
+
+  while (!isUnique) {
+    rfid = await generateRFID();
+    const existingWorker = await Worker.findOne({ rfid });
+    if (!existingWorker) {
+      isUnique = true;
+    }
+  }
+
+  return rfid;
+};
+
+// @desc    Check if an RFID is unique
+// @route   POST /api/workers/check-rfid
+// @access  Public or Protected (depending on your use case)
+const generateId = asyncHandler(async (req, res) => {
+  const rfid = await generateUniqueRFID();
+
+  res.status(200).json({
+    rfid: rfid,
+    message: "ID was generated"
+  });
 });
 
 // @desc    Get all workers
@@ -411,5 +426,6 @@ module.exports = {
   getWorkerActivities,
   resetWorkerActivities,
   getWorkersByDepartment,
-  getPublicWorkers
+  getPublicWorkers,
+  generateId
 };

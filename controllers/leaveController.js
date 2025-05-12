@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const Leave = require('../models/Leave');
 const Admin = require('../models/Admin');
+const Worker = require('../models/Worker');
 
 // @desc    Get all leave applications
 // @route   GET /api/leaves
@@ -9,7 +10,7 @@ const getLeaves = asyncHandler(async (req, res) => {
   const { subdomain, me } = req.params;
 
   if (!(me == '1' || me == '0')) {
-    throw new Error ('URL not found');
+    throw new Error('URL not found');
   }
 
   if (!subdomain || subdomain == 'main') {
@@ -18,18 +19,18 @@ const getLeaves = asyncHandler(async (req, res) => {
   }
 
   let leaves;
-  
+
   if (me == '1') {
     leaves = await Leave.find({ worker: req.user._id })
-    .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 });
   } else if (me == '0') {
     let user = await Admin.findById(req.user._id).select('-password');
     if (user) {
       leaves = await Leave.find({ subdomain })
-      .populate('worker', 'name department')
-      .sort({ createdAt: -1 });
+        .populate('worker', 'name department')
+        .sort({ createdAt: -1 });
     } else {
-      res.status(400).json({"message": "access denied"});
+      res.status(400).json({ "message": "access denied" });
     }
   }
 
@@ -43,7 +44,7 @@ const getMyLeaves = asyncHandler(async (req, res) => {
   console.log(req.user._id);
   const leaves = await Leave.find({ worker: req.user._id })
     .sort({ createdAt: -1 });
-  
+
   res.json(leaves);
 });
 
@@ -88,24 +89,56 @@ const createLeave = asyncHandler(async (req, res) => {
 // @route   PUT /api/leaves/:id/status
 // @access  Private/Admin
 const updateLeaveStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
+  const { status, leaveData } = req.body;
 
+  // Validate status
   if (!status || !['Approved', 'Rejected'].includes(status)) {
     res.status(400);
     throw new Error('Please provide a valid status');
   }
-  
-  const leave = await Leave.findById(req.params.id);
 
+  // Check if leave exists
+  const leave = await Leave.findById(req.params.id);
   if (!leave) {
     res.status(404);
     throw new Error('Leave application not found');
   }
 
-  leave.status = status;
-  leave.workerViewed = false;
+  // Update the leave document using findByIdAndUpdate
+  const updatedLeave = await Leave.findByIdAndUpdate(
+    req.params.id,
+    {
+      status,
+      workerViewed: false
+    },
+    { new: true } // Return the updated document
+  );
 
-  const updatedLeave = await leave.save();
+  // If approved, update the worker's final salary
+  if (status === 'Approved') {
+    const workerId = leaveData.worker?._id;
+    const totalDays = leaveData.totalDays;
+
+    if (!workerId || !totalDays) {
+      res.status(400);
+      throw new Error('Incomplete leave data for salary update');
+    }
+
+    const worker = await Worker.findById(workerId);
+    if (!worker) {
+      res.status(404);
+      throw new Error('Worker not found');
+    }
+
+    const deduction = totalDays * worker.perDaySalary;
+    const updatedFinalSalary = Math.max(0, worker.finalSalary - deduction);
+
+    const updateResult = await Worker.updateOne(
+      { _id: workerId },
+      { $set: { finalSalary: updatedFinalSalary } }
+    );
+
+  }
 
   res.json(updatedLeave);
 });
@@ -127,22 +160,22 @@ const getLeavesByStatus = asyncHandler(async (req, res) => {
 // @access  Private
 const markLeaveAsViewed = asyncHandler(async (req, res) => {
   const leave = await Leave.findById(req.params.id);
-  
+
   if (!leave) {
     res.status(404);
     throw new Error('Leave application not found');
   }
-  
+
   // Ensure worker can only mark their own leave
   if (leave.worker.toString() !== req.user._id.toString()) {
     res.status(403);
     throw new Error('Not authorized to mark this leave as viewed');
   }
-  
+
   leave.workerViewed = true;
-  
+
   await leave.save();
-  
+
   res.json({ message: 'Leave marked as viewed' });
 });
 
@@ -151,12 +184,12 @@ const markLeaveAsViewed = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getLeavesByDateRange = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
-  
+
   if (!startDate || !endDate) {
     res.status(400);
     throw new Error('Please provide start and end dates');
   }
-  
+
   const leaves = await Leave.find({
     $or: [
       {
@@ -175,20 +208,20 @@ const getLeavesByDateRange = asyncHandler(async (req, res) => {
   })
     .populate('worker', 'name department')
     .sort({ createdAt: -1 });
-  
+
   res.json(leaves);
 });
 
 const markLeavesAsViewedByAdmin = asyncHandler(async (req, res) => {
   await Leave.updateMany(
-    { 
-      workerViewed: false 
+    {
+      workerViewed: false
     },
-    { 
-      workerViewed: true 
+    {
+      workerViewed: true
     }
   );
-  
+
   res.json({ message: 'All leaves marked as viewed by admin' });
 });
 

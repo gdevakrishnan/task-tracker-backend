@@ -9,12 +9,14 @@ const {
   deleteWorker,
   getWorkerActivities,
   resetWorkerActivities,
-  getPublicWorkers
+  getPublicWorkers,
+  generateId
 } = require('../controllers/workerController');
 const { protect, adminOnly, adminOrWorker } = require('../middleware/authMiddleware');
 
 router.route('/').post(protect, adminOnly, createWorker); // Remove adminOnly for now
 router.route('/all').post(protect, adminOrWorker, getWorkers);
+router.route('/generate-id').get(protect, generateId);
 
 router.post('/public', getPublicWorkers);
   

@@ -18,6 +18,7 @@ const columnRoutes = require('./routes/columnRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const foodRequestRoutes = require('./routes/foodRequestRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const salaryRoutes = require('./routes/salaryRoutes');
 
 // Load env vars
 dotenv.config();
@@ -57,6 +58,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/api/auth', authRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/workers', workerRoutes);
+app.use('/api/salary', salaryRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/topics', topicRoutes);
