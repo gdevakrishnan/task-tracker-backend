@@ -172,6 +172,7 @@ const loginWorker = asyncHandler(async (req, res) => {
       subdomain: worker.subdomain,
       salary: worker.salary,
       finalSalary: worker.finalSalary,
+      photo: worker.photo,
       rfid: worker.rfid ? worker.rfid : 'unassigned',
       department: worker.department ? worker.department.name : 'Unassigned',
       role: 'worker',
