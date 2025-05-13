@@ -58,7 +58,6 @@ const putAttendance = async (req, res) => {
             name: worker.name,
             username: worker.username,
             rfid,
-            email: worker.email,
             subdomain,
             department: department._id,
             departmentName: department.name,

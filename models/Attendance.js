@@ -13,11 +13,6 @@ const attendanceSchema = mongoose.Schema({
         type: String,
         required: [true, 'RFID is missing'],
     },
-    email: {
-        type: String,
-        required: [true, 'Please add an email'],
-        match: [/.+@.+\..+/, 'Please add a valid email']
-    },
     subdomain: {
         type: String,
         required: [true, 'Company name is missing']
