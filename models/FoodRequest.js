@@ -1,4 +1,4 @@
-
+// backend/models/FoodRequest.js
 const mongoose = require('mongoose');
 
 const foodRequestSchema = mongoose.Schema(
@@ -16,6 +16,12 @@ const foodRequestSchema = mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Department',
       required: [true, 'Department not found']
+    },
+    mealType: {
+      type: String,
+      enum: ['breakfast', 'lunch', 'dinner'],
+      required: [true, 'Meal type is required'],
+      default: 'lunch'
     },
     date: {
       type: Date,

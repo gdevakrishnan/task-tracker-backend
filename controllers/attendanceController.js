@@ -90,7 +90,7 @@ const getAttendance = async (req, res) => {
             throw new Error('Company name is missing, login again');
         }
 
-        const attendanceData = await Attendance.find({ subdomain });
+        const attendanceData = await Attendance.find({ subdomain }).populate('worker');
 
         res.status(200).json({ message: 'Attendance data retrieved successfully', attendance: attendanceData });
     } catch (error) {

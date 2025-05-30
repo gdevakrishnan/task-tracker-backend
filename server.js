@@ -5,6 +5,12 @@ const path = require('path');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
+// Load env vars first
+dotenv.config();
+
+// Connect to database
+connectDB();
+
 // Routes
 const authRoutes = require('./routes/authRoutes');
 const attendanceRoutes = require('./routes/attedanceRoutes');
@@ -20,17 +26,14 @@ const foodRequestRoutes = require('./routes/foodRequestRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const salaryRoutes = require('./routes/salaryRoutes');
 
-// Load env vars
-dotenv.config();
-connectDB();
 const app = express();
 
 // Configure CORS to allow requests from your client with credentials
 app.use(cors({
   origin: (origin, callback) => {
     const allowedOrigins = [
-      'http://localhost:3000',
-      'https://tvtasks.netlify.app',
+      'http://localhost:3000', 
+      'https://tvtasks.netlify.app', 
       'https://client-seven-ruby.vercel.app',
       'https://client-santhoshsekar999-gmailcoms-projects.vercel.app'
     ];
@@ -74,9 +77,27 @@ app.get('/', (req, res) => {
   res.json({ message: 'Task Tracker API is running' });
 });
 
-// Error handler
+// Initialize schedulers and cron jobs
+if (process.env.NODE_ENV === 'production' || process.env.ENABLE_SCHEDULERS === 'true') {
+  console.log('🚀 Starting production schedulers...');
+  
+  // Initialize food request schedulers
+  const { initializeFoodRequestSchedulers } = require('./schedulers/foodRequestScheduler');
+  initializeFoodRequestSchedulers();
+  
+  // Initialize other cron jobs if they exist
+  const { startCronJobs } = require('./services/cronJobs');
+  startCronJobs();
+} else {
+  console.log('⚠️ Schedulers disabled. Set NODE_ENV=production or ENABLE_SCHEDULERS=true to enable');
+}
 
+// Error handler (should be last)
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🌟 Server running on port ${PORT}`);
+  console.log(`📧 Email service: ${process.env.EMAIL_USER ? 'Configured' : 'Not configured'}`);
+  console.log(`🗄️ Database: ${process.env.MONGO_URI ? 'Connected' : 'Not configured'}`);
+});
