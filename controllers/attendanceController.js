@@ -78,6 +78,79 @@ const putAttendance = async (req, res) => {
     }
 };
 
+// @desc   Update or create attendance record for a worker
+// @route   PUT /api/rfid-attendance
+// @access  Private
+const putRfidAttendance = async (req, res) => {
+    try {
+        const { rfid } = req.body;
+
+        if (!rfid || rfid === '') {
+            res.status(401);
+            throw new Error('RFID is required');
+        }
+
+        // login again if the worker exists in the Worker model
+        const worker = await Worker.findOne({ rfid });
+        if (!worker) {
+            res.status(404);
+            throw new Error('Worker not found');
+        }
+
+        const { subdomain } = worker;
+
+        // Fetch the department name using the worker.department ObjectId
+        const department = await Department.findById(worker.department);
+        if (!department) {
+            res.status(404);
+            throw new Error('Department not found');
+        }
+
+        // Get the current date and time in 'Asia/Kolkata' timezone
+        const indiaTimezone = new Intl.DateTimeFormat('en-CA', {
+            timeZone: 'Asia/Kolkata',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit'
+        });
+
+        const currentDate = indiaTimezone.format(new Date());
+        const currentTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
+
+        // login again if this is the first attendance for the worker on the current date
+        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ createdAt: -1 });
+
+        let presence = true;
+        if (allAttendances.length > 0) {
+            const lastAttendance = allAttendances[0];
+            presence = !lastAttendance.presence;
+        }
+
+        // Insert attendance record
+        const newAttendance = await Attendance.create({
+            name: worker.name,
+            username: worker.username,
+            rfid,
+            subdomain: subdomain,
+            department: department._id,
+            departmentName: department.name,
+            photo: worker.photo,
+            date: currentDate,
+            time: currentTime,
+            presence,
+            worker: worker._id
+        });
+
+        res.status(201).json({
+            message: presence ? 'Attendance marked as in' : 'Attendance marked as out',
+            attendance: newAttendance
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Server error', error: error.message });
+    }
+};
+
 // @desc    Retrieve all attendance records for a specific subdomain
 // @route   GET /api/attendance
 // @access  Private
@@ -125,4 +198,4 @@ const getWorkerAttendance = async (req, res) => {
     }
 };
 
-module.exports = { putAttendance, getAttendance, getWorkerAttendance };
+module.exports = { putAttendance, putRfidAttendance, getAttendance, getWorkerAttendance };
