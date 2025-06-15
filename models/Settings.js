@@ -73,6 +73,24 @@ const settingsSchema = mongoose.Schema({
     type: Boolean,
     default: false
   },
+
+  // Attendance and productivity settings
+  considerOvertime: {
+    type: Boolean,
+    default: false
+  },
+  deductSalary: {
+    type: Boolean,
+    default: true
+  },
+  permissionTimeMinutes: {
+    type: Number,
+    default: 15
+  },
+  salaryDeductionPerBreak: {
+    type: Number,
+    default: 10
+  },
   
   // Common fields
   lastUpdated: {
