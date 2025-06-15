@@ -185,7 +185,6 @@ const toggleFoodRequests = asyncHandler(async (req, res) => {
   });
 });
 
-// Get current settings for all meals
 const getSettings = asyncHandler(async (req, res) => {
   const { subdomain } = req.params;
 
@@ -194,15 +193,21 @@ const getSettings = asyncHandler(async (req, res) => {
     throw new Error('Company name is missing, login again.');
   }
 
-  const settings = await Settings.findOne({ subdomain }) || await Settings.create({ subdomain });
+  let settings = await Settings.findOne({ subdomain });
+  
+  if (!settings) {
+    settings = await Settings.create({ subdomain });
+  }
   
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  
   let settingsUpdated = false;
 
   // Update auto-switch settings
   if (settings.breakfastAutoSwitch) {
-    const shouldBeEnabled = currentTime >= settings.breakfastOpenTime && currentTime < settings.breakfastCloseTime;
+    const shouldBeEnabled = currentTime >= settings.breakfastOpenTime &&
+                             currentTime < settings.breakfastCloseTime;
     if (settings.breakfastEnabled !== shouldBeEnabled) {
       settings.breakfastEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -210,7 +215,8 @@ const getSettings = asyncHandler(async (req, res) => {
   }
 
   if (settings.foodRequestAutoSwitch) {
-    const shouldBeEnabled = currentTime >= settings.foodRequestOpenTime && currentTime < settings.foodRequestCloseTime;
+    const shouldBeEnabled = currentTime >= settings.foodRequestOpenTime &&
+                             currentTime < settings.foodRequestCloseTime;
     if (settings.foodRequestEnabled !== shouldBeEnabled) {
       settings.foodRequestEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -218,7 +224,8 @@ const getSettings = asyncHandler(async (req, res) => {
   }
 
   if (settings.dinnerAutoSwitch) {
-    const shouldBeEnabled = currentTime >= settings.dinnerOpenTime && currentTime < settings.dinnerCloseTime;
+    const shouldBeEnabled = currentTime >= settings.dinnerOpenTime &&
+                             currentTime < settings.dinnerCloseTime;
     if (settings.dinnerEnabled !== shouldBeEnabled) {
       settings.dinnerEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -226,10 +233,12 @@ const getSettings = asyncHandler(async (req, res) => {
   }
 
   if (settingsUpdated) {
+    settings.lastUpdated = new Date();
     await settings.save();
   }
 
-  res.status(200).json({
+  res.status(200).json({ 
+    subdomain: settings.subdomain,
     breakfast: {
       enabled: settings.breakfastEnabled,
       openTime: settings.breakfastOpenTime,
@@ -248,7 +257,15 @@ const getSettings = asyncHandler(async (req, res) => {
       closeTime: settings.dinnerCloseTime,
       autoSwitch: settings.dinnerAutoSwitch
     },
-    emailReportsEnabled: settings.emailReportsEnabled
+    emailReportsEnabled: settings.emailReportsEnabled,
+    lastEmailSent: settings.lastEmailSent,
+    emailSentToday: settings.emailSentToday,
+    considerOvertime: settings.considerOvertime,
+    deductSalary: settings.deductSalary,
+    permissionTimeMinutes: settings.permissionTimeMinutes,
+    salaryDeductionPerBreak: settings.salaryDeductionPerBreak,
+    lastUpdated: settings.lastUpdated,
+    updatedBy: settings.updatedBy
   });
 });
 
@@ -367,6 +384,111 @@ const toggleEmailReports = asyncHandler(async (req, res) => {
   });
 });
 
+// Update settings
+const updateSettings = async (req, res) => {
+  try {
+    const { subdomain } = req.params;
+    const updates = req.body;
+    const updatedBy = req.user?.id || req.body.updatedBy; // Assuming user ID comes from auth middleware
+
+    // Find existing settings
+    let settings = await Settings.findOne({ subdomain });
+
+    if (!settings) {
+      // Create new settings if not found
+      settings = new Settings({
+        subdomain,
+        ...updates,
+        updatedBy,
+        lastUpdated: new Date()
+      });
+    } else {
+      // Update existing settings
+      Object.keys(updates).forEach(key => {
+        if (key !== 'subdomain') { // Don't allow subdomain updates
+          settings[key] = updates[key];
+        }
+      });
+      
+      settings.updatedBy = updatedBy;
+      settings.lastUpdated = new Date();
+    }
+
+    // Save settings
+    await settings.save();
+
+    // Populate updatedBy for response
+    await settings.populate('updatedBy', 'name email');
+
+    const response = {
+      success: true,
+      message: 'Settings updated successfully',
+      data: {
+        subdomain: settings.subdomain,
+        
+        // Breakfast settings
+        breakfast: getMealSettings(settings, 'breakfast'),
+        
+        // Lunch settings
+        lunch: getMealSettings(settings, 'lunch'),
+        
+        // Dinner settings
+        dinner: getMealSettings(settings, 'dinner'),
+        
+        // Email settings
+        emailSettings: {
+          emailReportsEnabled: settings.emailReportsEnabled,
+          lastEmailSent: settings.lastEmailSent,
+          emailSentToday: settings.emailSentToday
+        },
+        
+        // Attendance and productivity settings
+        attendanceSettings: {
+          considerOvertime: settings.considerOvertime,
+          deductSalary: settings.deductSalary,
+          permissionTimeMinutes: settings.permissionTimeMinutes,
+          salaryDeductionPerBreak: settings.salaryDeductionPerBreak
+        },
+        
+        // Metadata
+        lastUpdated: settings.lastUpdated,
+        updatedBy: settings.updatedBy,
+        createdAt: settings.createdAt,
+        updatedAt: settings.updatedAt
+      }
+    };
+
+    res.status(200).json(response);
+
+  } catch (error) {
+    console.error('Error updating settings:', error);
+    
+    // Handle validation errors
+    if (error.name === 'ValidationError') {
+      const validationErrors = Object.values(error.errors).map(err => err.message);
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: validationErrors
+      });
+    }
+
+    // Handle duplicate key errors
+    if (error.code === 11000) {
+      return res.status(400).json({
+        success: false,
+        message: 'Subdomain already exists'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error',
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getTodayRequests,
   submitFoodRequest,
@@ -374,5 +496,6 @@ module.exports = {
   getSettings,
   updateMealSettings,
   getMealsSummary,
-  toggleEmailReports
+  toggleEmailReports,
+  updateSettings
 };

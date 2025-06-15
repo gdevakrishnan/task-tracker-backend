@@ -25,6 +25,7 @@ const departmentRoutes = require('./routes/departmentRoutes');
 const foodRequestRoutes = require('./routes/foodRequestRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
 const salaryRoutes = require('./routes/salaryRoutes');
+const settingsRoutes = require('./routes/settingsRoutes');
 
 const app = express();
 
@@ -71,6 +72,7 @@ app.use('/api/columns', columnRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/food-requests', foodRequestRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // Route for checking API status
 app.get('/', (req, res) => {
