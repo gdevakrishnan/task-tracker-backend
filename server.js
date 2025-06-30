@@ -29,12 +29,11 @@ const settingsRoutes = require('./routes/settingsRoutes');
 
 const app = express();
 
-// Configure CORS to allow requests from your client with credentials
-app.use(cors({
+const corsOptions = {
   origin: (origin, callback) => {
     const allowedOrigins = [
-      'http://localhost:3000', 
-      'https://tvtasks.netlify.app', 
+      'http://localhost:3000',
+      'https://tvtasks.netlify.app',
       'https://client-seven-ruby.vercel.app',
       'https://client-santhoshsekar999-gmailcoms-projects.vercel.app'
     ];
@@ -49,7 +48,13 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
-}));
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Handle preflight requests globally
+app.options('*', cors(corsOptions));
 
 // Middleware
 app.use(express.json());
