@@ -50,32 +50,44 @@ const createDepartment = asyncHandler(async (req, res) => {
 });
 
 const getDepartments = asyncHandler(async (req, res) => {
-  try {
-    // Find departments and sort by creation date (most recent first)
-    const departments = await Department.find({ subdomain: req.body.subdomain }).sort({ createdAt: -1 });
+  const { subdomain } = req.body;
+  if (!subdomain || subdomain === 'main') {
+    res.status(400);
+    throw new Error('Subdomain is missing or invalid.');
+  }
 
-    // Calculate worker count for each department
-    const departmentsWithWorkerCount = await Promise.all(
+  try {
+    // 1. Load all departments for this subdomain
+    const departments = await Department
+      .find({ subdomain })
+      .sort({ createdAt: -1 });
+
+    // 2. For each department, fetch its workers and build the response
+    const departmentsWithData = await Promise.all(
       departments.map(async (department) => {
-        const workerCount = await Worker.countDocuments({ 
-          department: department._id 
-        });
+        // Find all workers in this department, selecting only name & photo
+        const employees = await Worker
+          .find({ department: department._id })
+          .select('name photo');
 
         return {
-          _id: department._id,
-          name: department.name, // This will preserve the original case
-          createdAt: department.createdAt,
-          workerCount
+          // Spread the original department fields (_id, name, createdAt, etc.)
+          ...department.toObject(),
+          workerCount: employees.length,
+          employees  // [{ name, photo }, …]
         };
       })
     );
 
-    res.json(departmentsWithWorkerCount);
+    // 3. Send back JSON array
+    res.json(departmentsWithData);
+
   } catch (error) {
-    res.status(500);
-    throw new Error('Failed to fetch departments');
+    console.error('Get Departments Error:', error);
+    res.status(500).json({ message: 'Failed to fetch departments.' });
   }
 });
+
 
 const deleteDepartment = asyncHandler(async (req, res) => {
   const department = await Department.findById(req.params.id);
