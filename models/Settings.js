@@ -6,7 +6,7 @@ const settingsSchema = mongoose.Schema({
     required: true,
     unique: true
   },
-  
+
   // Breakfast settings
   breakfastEnabled: {
     type: Boolean,
@@ -24,7 +24,7 @@ const settingsSchema = mongoose.Schema({
     type: Boolean,
     default: false
   },
-  
+
   // Lunch settings (existing)
   foodRequestEnabled: {
     type: Boolean,
@@ -42,7 +42,7 @@ const settingsSchema = mongoose.Schema({
     type: Boolean,
     default: false
   },
-  
+
   // Dinner settings
   dinnerEnabled: {
     type: Boolean,
@@ -60,7 +60,7 @@ const settingsSchema = mongoose.Schema({
     type: Boolean,
     default: false
   },
-  
+
   // Email settings
   emailReportsEnabled: {
     type: Boolean,
@@ -91,7 +91,7 @@ const settingsSchema = mongoose.Schema({
     type: Number,
     default: 10
   },
-  
+
   // Common fields
   lastUpdated: {
     type: Date,
@@ -100,16 +100,84 @@ const settingsSchema = mongoose.Schema({
   updatedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Admin'
+  },
+
+  // Batches and intervals
+  batches: {
+    type: [
+      {
+        batchName: {
+          type: String,
+          required: true
+        },
+        from: {
+          type: String,
+          default: '09:00'
+        },
+        to: {
+          type: String,
+          default: '19:00'
+        }
+      }
+    ],
+    default: [
+      {
+        batchName: 'Full Time',
+        from: '09:00',
+        to: '19:00'
+      }
+    ]
+  },
+
+  lunchFrom: {
+    type: String,
+    default: '12:00'
+  },
+
+  lunchTo: {
+    type: String,
+    default: '13:00'
+  },
+
+  intervals: {
+    type: [
+      {
+        intervalName: {
+          type: String,
+          default: 'interval1'
+        },
+        from: {
+          type: String,
+          default: '10:15'
+        },
+        to: {
+          type: String,
+          default: '10:30'
+        }
+      }
+    ],
+    default: [
+      {
+        intervalName: 'interval1',
+        from: '10:15',
+        to: '10:30'
+      },
+      {
+        intervalName: 'interval2',
+        from: '14:15',
+        to: '14:30'
+      }
+    ]
   }
 }, {
   timestamps: true
 });
 
 // Method to reset daily email flag
-settingsSchema.methods.resetDailyEmailFlag = function() {
+settingsSchema.methods.resetDailyEmailFlag = function () {
   const today = new Date();
   const lastSent = this.lastEmailSent;
-  
+
   if (!lastSent || lastSent.toDateString() !== today.toDateString()) {
     this.emailSentToday = false;
     return true;

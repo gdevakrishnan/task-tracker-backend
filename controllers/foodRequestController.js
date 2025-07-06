@@ -55,7 +55,7 @@ const submitFoodRequest = asyncHandler(async (req, res) => {
 
   const settings = await Settings.findOne({ subdomain }) || await Settings.create({ subdomain });
   const mealSettings = getMealSettings(settings, mealType);
-  
+
   if (!mealSettings) {
     res.status(400);
     throw new Error(`${mealType} settings not found`);
@@ -65,14 +65,14 @@ const submitFoodRequest = asyncHandler(async (req, res) => {
   if (mealSettings.autoSwitch) {
     // Get the current time in the correct timezone ('Asia/Kolkata')
     const formatter = new Intl.DateTimeFormat('en-GB', {
-        timeZone: 'Asia/Kolkata',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
     });
 
     const currentTime = formatter.format(new Date());
-    
+
     if (currentTime < mealSettings.openTime || currentTime >= mealSettings.closeTime) {
       res.status(400);
       throw new Error(`${mealType} requests are only available between ${mealSettings.openTime} and ${mealSettings.closeTime}`);
@@ -185,9 +185,9 @@ const toggleFoodRequests = asyncHandler(async (req, res) => {
   await settings.save();
 
   const mealSettings = getMealSettings(settings, mealType);
-  res.status(200).json({ 
+  res.status(200).json({
     mealType,
-    enabled: mealSettings.enabled 
+    enabled: mealSettings.enabled
   });
 });
 
@@ -200,20 +200,20 @@ const getSettings = asyncHandler(async (req, res) => {
   }
 
   let settings = await Settings.findOne({ subdomain });
-  
+
   if (!settings) {
     settings = await Settings.create({ subdomain });
   }
-  
+
   const now = new Date();
   const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  
+
   let settingsUpdated = false;
 
   // Update auto-switch settings
   if (settings.breakfastAutoSwitch) {
     const shouldBeEnabled = currentTime >= settings.breakfastOpenTime &&
-                             currentTime < settings.breakfastCloseTime;
+      currentTime < settings.breakfastCloseTime;
     if (settings.breakfastEnabled !== shouldBeEnabled) {
       settings.breakfastEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -222,7 +222,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   if (settings.foodRequestAutoSwitch) {
     const shouldBeEnabled = currentTime >= settings.foodRequestOpenTime &&
-                             currentTime < settings.foodRequestCloseTime;
+      currentTime < settings.foodRequestCloseTime;
     if (settings.foodRequestEnabled !== shouldBeEnabled) {
       settings.foodRequestEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -231,7 +231,7 @@ const getSettings = asyncHandler(async (req, res) => {
 
   if (settings.dinnerAutoSwitch) {
     const shouldBeEnabled = currentTime >= settings.dinnerOpenTime &&
-                             currentTime < settings.dinnerCloseTime;
+      currentTime < settings.dinnerCloseTime;
     if (settings.dinnerEnabled !== shouldBeEnabled) {
       settings.dinnerEnabled = shouldBeEnabled;
       settingsUpdated = true;
@@ -243,7 +243,7 @@ const getSettings = asyncHandler(async (req, res) => {
     await settings.save();
   }
 
-  res.status(200).json({ 
+  res.status(200).json({
     subdomain: settings.subdomain,
     breakfast: {
       enabled: settings.breakfastEnabled,
@@ -270,6 +270,12 @@ const getSettings = asyncHandler(async (req, res) => {
     deductSalary: settings.deductSalary,
     permissionTimeMinutes: settings.permissionTimeMinutes,
     salaryDeductionPerBreak: settings.salaryDeductionPerBreak,
+
+    batches: settings.batches,
+    lunchFrom: settings.lunchFrom,
+    lunchTo: settings.lunchTo,
+    intervals: settings.intervals,
+
     lastUpdated: settings.lastUpdated,
     updatedBy: settings.updatedBy
   });
@@ -377,14 +383,14 @@ const toggleEmailReports = asyncHandler(async (req, res) => {
   }
 
   const settings = await Settings.findOne({ subdomain }) || await Settings.create({ subdomain });
-  
+
   settings.emailReportsEnabled = !settings.emailReportsEnabled;
   settings.lastUpdated = new Date();
   settings.updatedBy = req.user._id;
-  
+
   await settings.save();
 
-  res.status(200).json({ 
+  res.status(200).json({
     message: `Email reports ${settings.emailReportsEnabled ? 'enabled' : 'disabled'} successfully`,
     emailReportsEnabled: settings.emailReportsEnabled
   });
@@ -415,7 +421,7 @@ const updateSettings = async (req, res) => {
           settings[key] = updates[key];
         }
       });
-      
+
       settings.updatedBy = updatedBy;
       settings.lastUpdated = new Date();
     }
@@ -431,23 +437,23 @@ const updateSettings = async (req, res) => {
       message: 'Settings updated successfully',
       data: {
         subdomain: settings.subdomain,
-        
+
         // Breakfast settings
         breakfast: getMealSettings(settings, 'breakfast'),
-        
+
         // Lunch settings
         lunch: getMealSettings(settings, 'lunch'),
-        
+
         // Dinner settings
         dinner: getMealSettings(settings, 'dinner'),
-        
+
         // Email settings
         emailSettings: {
           emailReportsEnabled: settings.emailReportsEnabled,
           lastEmailSent: settings.lastEmailSent,
           emailSentToday: settings.emailSentToday
         },
-        
+
         // Attendance and productivity settings
         attendanceSettings: {
           considerOvertime: settings.considerOvertime,
@@ -455,7 +461,7 @@ const updateSettings = async (req, res) => {
           permissionTimeMinutes: settings.permissionTimeMinutes,
           salaryDeductionPerBreak: settings.salaryDeductionPerBreak
         },
-        
+
         // Metadata
         lastUpdated: settings.lastUpdated,
         updatedBy: settings.updatedBy,
@@ -468,7 +474,7 @@ const updateSettings = async (req, res) => {
 
   } catch (error) {
     console.error('Error updating settings:', error);
-    
+
     // Handle validation errors
     if (error.name === 'ValidationError') {
       const validationErrors = Object.values(error.errors).map(err => err.message);
