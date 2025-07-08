@@ -117,6 +117,18 @@ const settingsSchema = mongoose.Schema({
         to: {
           type: String,
           default: '19:00'
+        },
+        lunchFrom: {
+          type: String,
+          default: '12:00'
+        },
+        lunchTo: {
+          type: String,
+          default: '13:00'
+        },
+        isLunchConsider: {
+          type: Boolean,
+          default: false
         }
       }
     ],
@@ -124,19 +136,12 @@ const settingsSchema = mongoose.Schema({
       {
         batchName: 'Full Time',
         from: '09:00',
-        to: '19:00'
+        to: '19:00',
+        lunchFrom: '12:00',
+        lunchTo: '13:00',
+        isLunchConsider: false
       }
     ]
-  },
-
-  lunchFrom: {
-    type: String,
-    default: '12:00'
-  },
-
-  lunchTo: {
-    type: String,
-    default: '13:00'
   },
 
   intervals: {
@@ -153,6 +158,10 @@ const settingsSchema = mongoose.Schema({
         to: {
           type: String,
           default: '10:30'
+        },
+        isBreakConsider: {
+          type: Boolean,
+          default: false
         }
       }
     ],
@@ -160,12 +169,14 @@ const settingsSchema = mongoose.Schema({
       {
         intervalName: 'interval1',
         from: '10:15',
-        to: '10:30'
+        to: '10:30',
+        isBreakConsider: false
       },
       {
         intervalName: 'interval2',
         from: '14:15',
-        to: '14:30'
+        to: '14:30',
+        isBreakConsider: false
       }
     ]
   }
