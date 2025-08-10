@@ -1,14 +1,31 @@
 const mongoose = require('mongoose');
 
-const topicSchema = mongoose.Schema({
+const subTopicSchema = mongoose.Schema({
   name: {
     type: String,
-    required: [true, 'Please add a topic name'],
-    unique: true
+    required: [true, 'Please add a sub-topic name']
   },
   points: {
     type: Number,
-    required: [true, 'Please add points']
+    required: [true, 'Please add points'],
+    default: 0
+  }
+}, {
+  timestamps: true // Add timestamps to subtopics for better tracking
+});
+
+const topicSchema = mongoose.Schema({
+  name: {
+    type: String,
+    required: [true, 'Please add a topic name']
+    // Removed unique: true here as topics can now have subtopics,
+    // and uniqueness might be desired per department + parent topic,
+    // which will be handled in the controller if needed.
+  },
+  points: {
+    type: Number,
+    required: [true, 'Please add points'],
+    default: 0
   },
   department: {
     type: String,
@@ -17,7 +34,9 @@ const topicSchema = mongoose.Schema({
   subdomain: {
     type: String,
     required: [true, 'Company name is missing']
-  }
+  },
+  // New field to store sub-topics
+  subtopics: [subTopicSchema]
 }, {
   timestamps: true
 });

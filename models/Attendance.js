@@ -44,6 +44,10 @@ const attendanceSchema = mongoose.Schema({
         type: Boolean,
         required: [true, 'Presence is required'] // true for in, false for out
     },
+    isMissedOutPunch: {
+        type: Boolean,
+        default: false
+    },
     worker: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Worker',

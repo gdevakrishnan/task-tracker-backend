@@ -1,39 +1,74 @@
+// attendance _31/server/controllers/taskController.js
 const asyncHandler = require('express-async-handler');
 const Task = require('../models/Task');
 const Worker = require('../models/Worker');
-const Topic = require('../models/Topic');
+const Topic = require('../models/Topic'); // Still needed for context or if you have other topic-related lookups elsewhere
 
 // @desc    Create new task
 // @route   POST /api/tasks
 // @access  Private
 const createTask = asyncHandler(async (req, res) => {
-  const { data, topics, subdomain } = req.body;
+  // Destructure the new 'selectedSubtopics' from the request body
+  const { data, topics, subtopics, subdomain } = req.body; // 'subtopics' here is the selectedSubtopics object from frontend
   const workerId = req.user._id;
 
-  // Validate task data
-  if (!data || Object.keys(data).length === 0) {
+  // MODIFIED VALIDATION: Allow submission if either 'data' (columns) has entries
+  // OR 'topics' (main topics) OR 'subtopics' (nested subtopics/actions) have selections.
+  const hasColumnData = data && Object.keys(data).length > 0;
+  const hasTopicData = (topics && topics.length > 0) || (subtopics && Object.keys(subtopics).length > 0);
+
+  if (!hasColumnData && !hasTopicData) {
     res.status(400);
-    throw new Error('Please provide task data');
+    throw new Error('Please provide task data or select at least one topic/subtopic.');
   }
 
   // Calculate task points
   let taskPoints = 0;
-  
-  // Sum values from the data object
-  Object.values(data).forEach(value => {
-    taskPoints += parseInt(value) || 0;
-  });
+  // Sum values from the data object (columns)
+  if (hasColumnData) {
+    Object.values(data).forEach(value => {
+      taskPoints += parseInt(value) || 0;
+    });
+  }
 
-  // Add points from topics
-  let topicIds = [];
-  let topicPoints = 0;
-  
+  let selectedTopicIds = [];
+  const workerTopicPointsUpdates = {};
+
+  // Process main topics
+  // Ensure that if a subtopic is selected, its parent topic is also counted in `topics` array for Task model
   if (topics && topics.length > 0) {
     const topicObjects = await Topic.find({ _id: { $in: topics }, subdomain });
-    topicIds = topicObjects.map(topic => topic._id);
-    
-    topicPoints = topicObjects.reduce((sum, topic) => sum + topic.points, 0);
-    taskPoints += topicPoints;
+    topicObjects.forEach(topic => {
+      selectedTopicIds.push(topic._id);
+      taskPoints += topic.points;
+      workerTopicPointsUpdates[topic.name] = (workerTopicPointsUpdates[topic.name] || 0) + topic.points;
+    });
+  }
+
+  // Process subtopics points and ensure their parent topics are selected
+  if (subtopics && Object.keys(subtopics).length > 0) {
+    for (const topicId in subtopics) {
+      const subtopicIds = subtopics[topicId];
+      if (subtopicIds && subtopicIds.length > 0) {
+        const mainTopic = await Topic.findById(topicId);
+
+        if (mainTopic) {
+          // Ensure the main topic is also considered selected if its subtopics are
+          if (!selectedTopicIds.includes(mainTopic._id)) {
+            selectedTopicIds.push(mainTopic._id);
+          }
+
+          mainTopic.subtopics.forEach(sub => {
+            if (subtopicIds.includes(sub._id.toString())) {
+              taskPoints += sub.points;
+              // Store points against a combined key like "MainTopicName - SubtopicName"
+              const subtopicKey = `${mainTopic.name} - ${sub.name}`;
+              workerTopicPointsUpdates[subtopicKey] = (workerTopicPointsUpdates[subtopicKey] || 0) + sub.points;
+            }
+          });
+        }
+      }
+    }
   }
 
   // Create task
@@ -41,14 +76,17 @@ const createTask = asyncHandler(async (req, res) => {
     worker: workerId,
     data,
     subdomain,
-    topics: topicIds,
+    topics: selectedTopicIds, // Store IDs of main topics selected or implied by subtopics
+    selectedSubtopics: subtopics, // NEW: Store the actual selected subtopics object
     points: taskPoints
   });
 
   // Update worker total points and last submission
   const worker = await Worker.findById(workerId);
   worker.totalPoints = (worker.totalPoints || 0) + taskPoints;
-  worker.topicPoints = (worker.topicPoints || 0) + topicPoints;
+  Object.entries(workerTopicPointsUpdates).forEach(([key, pointsToAdd]) => {
+    worker.topicPoints[key] = (worker.topicPoints[key] || 0) + pointsToAdd;
+  });
   worker.lastSubmission = {
     timestamp: Date.now(),
     details: data
@@ -58,11 +96,18 @@ const createTask = asyncHandler(async (req, res) => {
   res.status(201).json(task);
 });
 
-// @desc    Get all tasks
-// @route   GET /api/tasks
+// @desc    Get all tasks for admin
+// @route   POST /api/tasks/all
 // @access  Private/Admin
 const getTasks = asyncHandler(async (req, res) => {
-  const tasks = await Task.find({ subdomain: req.body.subdomain })
+  const { department, subdomain } = req.body;
+
+  if (!subdomain || subdomain === 'main') {
+    res.status(400);
+    throw new Error('Company name is missing or invalid. Please login again.');
+  }
+
+  const tasks = await Task.find({ subdomain })
     .populate({
       path: 'worker',
       populate: {
@@ -71,19 +116,22 @@ const getTasks = asyncHandler(async (req, res) => {
       },
       select: 'name department'
     })
-    .populate('topics', 'name points')
+    // MODIFIED POPULATION: Include _id along with name, points, subtopics
+    .populate('topics', '_id name points subtopics')
     .sort({ createdAt: -1 });
 
   res.json(tasks);
 });
+
 // @desc    Get my tasks
 // @route   GET /api/tasks/me
 // @access  Private
 const getMyTasks = asyncHandler(async (req, res) => {
   const tasks = await Task.find({ worker: req.user._id })
-    .populate('topics', 'name points')
+    // MODIFIED POPULATION: Include _id along with name, points, subtopics
+    .populate('topics', '_id name points subtopics')
     .sort({ createdAt: -1 });
-  
+
   res.json(tasks);
 });
 
@@ -92,7 +140,7 @@ const getMyTasks = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getTasksByDateRange = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
-  
+
   if (!startDate || !endDate) {
     res.status(400);
     throw new Error('Please provide start and end dates');
@@ -105,15 +153,18 @@ const getTasksByDateRange = asyncHandler(async (req, res) => {
     }
   })
     .populate('worker', 'name department')
-    .populate('topics', 'name points')
+    // MODIFIED POPULATION: Include _id along with name, points, subtopics
+    .populate('topics', '_id name points subtopics')
     .sort({ createdAt: -1 });
-  
+
   res.json(tasks);
 });
 
-// @desc    Reset all tasks
-// @route   DELETE /api/tasks/reset
-// @access  Private/Admin
+// Remaining functions (resetAllTasks, createCustomTask, getCustomTasks, getMyCustomTasks, reviewCustomTask)
+// do not directly interact with the 'topics' or 'selectedItems' field, so they remain unchanged.
+// If reviewCustomTask needs to update totalPoints based on a new taskPoints field that came from
+// selected hierarchical items, its current logic for adding points will still work as 'task.points' is updated.
+
 const resetAllTasks = asyncHandler(async (req, res) => {
   const { subdomain } = req.params;
 
@@ -131,7 +182,7 @@ const resetAllTasks = asyncHandler(async (req, res) => {
     {
       $set: {
         totalPoints: 0,
-        topicPoints: 0,
+        topicPoints: {}, // MODIFIED: Reset to empty object, as it holds mapped key-value pairs
         lastSubmission: {}
       }
     }
@@ -193,23 +244,23 @@ const getCustomTasks = asyncHandler(async (req, res) => {
       }
     })
     .sort({ createdAt: -1 });
-  
+
   // For debugging
   console.log('Populated tasks:', JSON.stringify(tasks.map(t => ({
     id: t._id,
     worker: t.worker ? { id: t.worker._id, name: t.worker.name } : null,
     description: t.description
   })), null, 2));
-  
+
   res.json(tasks);
 });
 
 const getMyCustomTasks = asyncHandler(async (req, res) => {
-  const tasks = await Task.find({ 
+  const tasks = await Task.find({
     worker: req.user._id,
-    isCustom: true 
+    isCustom: true
   }).sort({ createdAt: -1 });
-  
+
   res.json(tasks);
 });
 
@@ -242,10 +293,10 @@ const reviewCustomTask = asyncHandler(async (req, res) => {
 
   // Update task
   task.status = status;
-  
+
   if (status === 'approved') {
     task.points = points;
-    
+
     // Update worker's total points
     const worker = await Worker.findById(task.worker);
     worker.totalPoints = (worker.totalPoints || 0) + points;
