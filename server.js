@@ -34,8 +34,6 @@ const corsOptions = {
     const allowedOrigins = [
       'http://localhost:3000',
       'https://tvtasks.netlify.app',
-      'https://client-seven-ruby.vercel.app',
-      'https://client-santhoshsekar999-gmailcoms-projects.vercel.app'
     ];
     const regex = /^http:\/\/.*\.localhost:3000$/; // Allow subdomains of localhost:3000
 
