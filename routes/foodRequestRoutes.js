@@ -4,6 +4,7 @@ const router = express.Router();
 const { 
   getTodayRequests, 
   submitFoodRequest, 
+  submitRequestForWorker,
   toggleFoodRequests,
   getSettings,
   updateMealSettings,
@@ -17,6 +18,7 @@ const { adminOnly } = require('../middleware/roleMiddleware');
 router.post('/', protect, submitFoodRequest);
 
 // Admin routes
+router.post('/admin/request', protect, adminOnly, submitRequestForWorker);
 router.get('/:subdomain', protect, adminOnly, getTodayRequests); 
 router.get('/:subdomain/summary', protect, adminOnly, getMealsSummary);
 router.put('/toggle/:subdomain', protect, adminOnly, toggleFoodRequests);

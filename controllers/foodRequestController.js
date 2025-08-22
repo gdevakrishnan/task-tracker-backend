@@ -122,6 +122,67 @@ const submitFoodRequest = asyncHandler(async (req, res) => {
 
   res.status(201).json(populatedRequest);
 });
+
+// Submit a food request for a worker (admin)
+const submitRequestForWorker = asyncHandler(async (req, res) => {
+  const { subdomain, mealType, workerId } = req.body;
+
+  if (!subdomain || subdomain === 'main') {
+    res.status(400);
+    throw new Error('Company name is missing, login again.');
+  }
+
+  if (!mealType || !['breakfast', 'lunch', 'dinner'].includes(mealType)) {
+    res.status(400);
+    throw new Error('Valid meal type is required (breakfast, lunch, or dinner)');
+  }
+
+  if (!workerId) {
+    res.status(400);
+    throw new Error('Worker ID is required');
+  }
+
+  // Check if worker has already submitted a request for this meal today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const existingRequest = await FoodRequest.findOne({
+    worker: workerId,
+    mealType,
+    date: {
+      $gte: today,
+      $lt: tomorrow
+    }
+  });
+
+  if (existingRequest) {
+    res.status(400);
+    throw new Error(`Worker has already submitted a ${mealType} request today`);
+  }
+
+  const worker = await Worker.findById(workerId);
+  if (!worker) {
+    res.status(404);
+    throw new Error('Worker not found');
+  }
+
+  const request = await FoodRequest.create({
+    worker: workerId,
+    subdomain,
+    department: worker.department,
+    mealType,
+    date: new Date()
+  });
+
+  const populatedRequest = await FoodRequest.findById(request._id)
+    .populate('worker', 'name rfid department photo')
+    .populate('department', 'name');
+
+  res.status(201).json(populatedRequest);
+});
+
 // Helper function to get meal-specific settings
 const getMealSettings = (settings, mealType) => {
   switch (mealType) {
@@ -504,6 +565,7 @@ const updateSettings = async (req, res) => {
 module.exports = {
   getTodayRequests,
   submitFoodRequest,
+  submitRequestForWorker,
   toggleFoodRequests,
   getSettings,
   updateMealSettings,
