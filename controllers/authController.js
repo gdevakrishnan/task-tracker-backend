@@ -5,6 +5,9 @@ const asyncHandler = require('express-async-handler');
 const Admin = require('../models/Admin');
 const Worker = require('../models/Worker');
 
+const crypto = require('crypto');
+const { sendPasswordResetEmail } = require('../config/email');
+
 // Generate JWT
 const generateToken = (id, role) => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET, {
@@ -184,11 +187,83 @@ const loginWorker = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Request password reset OTP for Admin
+// @route   POST /api/auth/request-reset-otp
+// @access  Public
+const requestPasswordResetOtp = asyncHandler(async (req, res) => {
+  const { subdomain } = req.body;
+
+  if (!subdomain) {
+    res.status(400);
+    throw new Error('Please enter a registered company name.');
+  }
+
+  const admin = await Admin.findOne({ subdomain });
+
+  if (!admin) {
+    res.status(404);
+    throw new Error('Admin for that company name does not exist.');
+  }
+
+  // Generate 6-digit numeric OTP and set expiration (10 minutes)
+  const resetOtp = Math.floor(100000 + Math.random() * 900000).toString();
+  admin.resetPasswordOtp = resetOtp;
+  admin.resetPasswordExpire = Date.now() + 10 * 60 * 1000;
+  await admin.save();
+
+  try {
+    await sendPasswordResetEmail(admin.email, resetOtp);
+    res.status(200).json({ message: 'A password reset OTP has been sent to your registered email address.' });
+  } catch (err) {
+    admin.resetPasswordOtp = undefined;
+    admin.resetPasswordExpire = undefined;
+    await admin.save();
+    res.status(500);
+    throw new Error('Email could not be sent. Please try again later.');
+  }
+});
+
+// @desc    Reset password with OTP for Admin
+// @route   PUT /api/auth/reset-password-with-otp
+// @access  Public
+const resetPasswordWithOtp = asyncHandler(async (req, res) => {
+  const { subdomain, otp, password } = req.body;
+
+  if (!subdomain || !otp || !password) {
+    res.status(400);
+    throw new Error('All fields are required.');
+  }
+
+  const admin = await Admin.findOne({
+    subdomain,
+    resetPasswordOtp: otp,
+    resetPasswordExpire: { $gt: Date.now() }
+  }).select('+password');
+
+  if (!admin) {
+    res.status(400);
+    throw new Error('Invalid or expired OTP.');
+  }
+
+  // Hash new password
+  const salt = await bcrypt.genSalt(10);
+  admin.password = await bcrypt.hash(password, salt);
+
+  // Clear OTP fields
+  admin.resetPasswordOtp = undefined;
+  admin.resetPasswordExpire = undefined;
+  await admin.save();
+
+  res.status(200).json({ message: 'Password reset successfully. You can now log in.' });
+});
+
 module.exports = {
   subdomainAvailable,
   registerAdmin,
   loginAdmin,
   loginWorker,
   getMe,
-  checkAdminInitialization
+  checkAdminInitialization,
+  requestPasswordResetOtp,
+  resetPasswordWithOtp
 };

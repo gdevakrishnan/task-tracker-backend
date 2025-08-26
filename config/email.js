@@ -226,7 +226,27 @@ const generateMealReportHTML = (reportData) => {
     </html>
   `;
 };
+ const sendPasswordResetEmail = async (recipients, resetOtp) => {
+    try {
+      const mailOptions = {
+        from: `"Task Tracker Admin" <${process.env.EMAIL_USER}>`,
+        to: recipients,
+        subject: 'Password Reset OTP',
+        html: `
+          <p>You have requested a password reset for your Task Tracker account.</p>
+          <p>Your one-time password (OTP) is: <strong>${resetOtp}</strong></p>
+          <p>This OTP is valid for 10 minutes. Please enter this code on the verification page to proceed with resetting your password.</p>
+          <p>If you did not request this, please ignore this email.</p>
+        `
+      };
 
+      const result = await transporter.sendMail(mailOptions);
+      return result;
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      throw error;
+    }
+  };
 // Send food request report
 const sendFoodRequestReport = async (recipients, reportData) => {
   try {
@@ -269,6 +289,7 @@ const testEmailConnection = async () => {
 module.exports = {
   sendFoodRequestReport,
   testEmailConnection,
+  sendPasswordResetEmail,
   generateDailyReportHTML,
   generateMealReportHTML
 };

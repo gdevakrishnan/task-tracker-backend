@@ -33,6 +33,9 @@ const adminSchema = mongoose.Schema(
       type: String,
       default: 'admin',
     },
+    // New fields for password reset with OTP
+    resetPasswordOtp: String,
+    resetPasswordExpire: Date,
   },
   {
     timestamps: true,
