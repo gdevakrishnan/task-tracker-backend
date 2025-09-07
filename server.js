@@ -28,6 +28,15 @@ const salaryRoutes = require('./routes/salaryRoutes');
 const settingsRoutes = require('./routes/settingsRoutes');
 const holidayRoutes = require('./routes/holidayRoutes');
 
+// Test App routes
+const testQuestionRoutes = require('./routes/testQuestionRoutes');
+const testRoutes = require('./routes/testRoutes');
+const learningTopicRoutes = require('./routes/learningTopicRoutes');
+const dailyTopicRoutes = require('./routes/dailyTopicRoutes');
+
+// Job routes
+const jobRoutes = require('./routes/jobRoutes');
+
 const app = express();
 
 const corsOptions = {
@@ -78,6 +87,15 @@ app.use('/api/food-requests', foodRequestRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/holidays', holidayRoutes);
+
+// Test App routes
+app.use('/api/test/questions', testQuestionRoutes);
+app.use('/api/test', testRoutes);
+app.use('/api/test/topics', learningTopicRoutes);
+app.use('/api/daily-topics', dailyTopicRoutes);
+
+// Job routes
+app.use('/api/jobs', jobRoutes);
 
 // Route for checking API status
 app.get('/', (req, res) => {

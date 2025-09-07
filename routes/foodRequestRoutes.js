@@ -11,8 +11,7 @@ const {
   getMealsSummary,
   toggleEmailReports
 } = require('../controllers/foodRequestController');
-const { protect } = require('../middleware/authMiddleware');
-const { adminOnly } = require('../middleware/roleMiddleware');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 // Worker routes
 router.post('/', protect, submitFoodRequest);

@@ -188,26 +188,26 @@ const generateId = asyncHandler(async (req, res) => {
 // @route   GET /api/workers
 // @access  Private/Admin
 const getWorkers = asyncHandler(async (req, res) => {
-  try {
-    const workers = await Worker.find({ subdomain: req.body.subdomain })
-      .select('-password')
-      .populate('department', 'name');
+    try {
+        const workers = await Worker.find({ subdomain: req.body.subdomain })
+            .select('-password')
+            .populate('department', 'name');
 
-    // Transform workers to include department name and full photo URL
-    const transformedWorkers = workers.map(worker => ({
-      ...worker.toObject(),
-      department: worker.department ? worker.department.name : 'Unassigned',
-      photoUrl: worker.photo
-        ? `/uploads/${worker.photo}`
-        : `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}`
-    }));
+        // Transform workers to include department name and full photo URL
+        const transformedWorkers = workers.map(worker => ({
+            ...worker.toObject(),
+            department: worker.department ? worker.department.name : 'N/A',
+            photoUrl: worker.photo
+                ? `/uploads/${worker.photo}`
+                : `https://ui-avatars.com/api/?name=${encodeURIComponent(worker.name)}`
+        }));
 
-    res.json(transformedWorkers);
-  } catch (error) {
-    console.error('Get Workers Error:', error);
-    res.status(500);
-    throw new Error('Failed to retrieve workers');
-  }
+        res.json(transformedWorkers);
+    } catch (error) {
+        console.error('Get Workers Error:', error);
+        res.status(500);
+        throw new Error('Failed to retrieve workers');
+    }
 });
 const getPublicWorkers = asyncHandler(async (req, res) => {
   try {

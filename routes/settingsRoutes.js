@@ -6,8 +6,7 @@ const {
   updateMealSettings,
   updateSettings
 } = require('../controllers/foodRequestController');
-const { protect } = require('../middleware/authMiddleware');
-const { adminOnly } = require('../middleware/roleMiddleware');
+const { protect, adminOnly } = require('../middleware/authMiddleware');
 
 // Admin routes
 router.put('/:subdomain/:mealType', protect, adminOnly, updateMealSettings);

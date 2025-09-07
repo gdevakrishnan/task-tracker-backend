@@ -112,7 +112,7 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
       workerViewed: false
     },
     { new: true } // Return the updated document
-  );
+  ).populate('worker', 'name department'); // Populate worker info in the response
 
   // If approved, update the worker's final salary
   if (status === 'Approved') {
@@ -145,8 +145,13 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
 
 const getLeavesByStatus = asyncHandler(async (req, res) => {
   const { status } = req.query;
+  const subdomain = req.user.subdomain; // Get subdomain from authenticated user
 
-  const query = status !== 'all' ? { status } : {};
+  // Build query with subdomain filter
+  const query = { subdomain };
+  if (status !== 'all') {
+    query.status = status;
+  }
 
   const leaves = await Leave.find(query)
     .populate('worker', 'name department')
@@ -184,6 +189,7 @@ const markLeaveAsViewed = asyncHandler(async (req, res) => {
 // @access  Private/Admin
 const getLeavesByDateRange = asyncHandler(async (req, res) => {
   const { startDate, endDate } = req.query;
+  const subdomain = req.user.subdomain; // Get subdomain from authenticated user
 
   if (!startDate || !endDate) {
     res.status(400);
@@ -191,6 +197,7 @@ const getLeavesByDateRange = asyncHandler(async (req, res) => {
   }
 
   const leaves = await Leave.find({
+    subdomain, // Add subdomain filter
     $or: [
       {
         startDate: {
@@ -213,8 +220,11 @@ const getLeavesByDateRange = asyncHandler(async (req, res) => {
 });
 
 const markLeavesAsViewedByAdmin = asyncHandler(async (req, res) => {
+  const subdomain = req.user.subdomain; // Get subdomain from authenticated user
+  
   await Leave.updateMany(
     {
+      subdomain, // Add subdomain filter
       workerViewed: false
     },
     {

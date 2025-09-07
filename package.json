@@ -21,11 +21,13 @@
         "multer": "^1.4.5-lts.2",
         "node-cron": "^4.0.7",
         "nodemailer": "^6.10.1",
+        "openai": "^5.0.2",
         "qrcode": "^1.5.4",
         "socket.io": "^4.8.1",
         "tdl": "^8.0.2",
-        "tdl-tdlib-addon": "^1.2.2",
         "telegram": "^2.26.22",
+        "uuid": "^11.1.0",
+        "validator": "^13.15.15",
         "ws": "^8.18.2"
     },
     "devDependencies": {
