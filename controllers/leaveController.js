@@ -51,59 +51,71 @@ const getMyLeaves = asyncHandler(async (req, res) => {
   res.json(leaves);
 });
 
-// @desc    Create a leave application
+// @desc    Create a leave application and send notification
 // @route   POST /api/leaves
 // @access  Private
 const createLeave = asyncHandler(async (req, res) => {
   const { subdomain, leaveType, startDate, endDate, totalDays, reason } = req.body;
 
-  console.log('REQ BODY:', req.body);
-  console.log('REQ FILE:', req.file);
-
   if (!subdomain || subdomain === 'main') {
     res.status(400);
-    throw new Error('Valid subdomain is required');
+    throw new Error('Company name is required, login again.');
   }
 
-  // Validate worker role
-  if (req.user.role !== 'worker') {
-    res.status(403);
-    throw new Error('Only workers can create leave requests');
+  if (!leaveType || !startDate || !endDate || !totalDays || !reason) {
+    res.status(400);
+    throw new Error('Please fill in all required fields');
   }
+
+  const documentDoc = req.file ? req.file.filename : '';
 
   const leave = await Leave.create({
-    worker,
+    worker: req.user._id,
     subdomain,
     leaveType,
     startDate,
     endDate,
-    totalDays: totalDays || 0,
+    totalDays,
     reason,
-    document: documentDoc,
+    document: req.file ? req.file.filename : '',
     status: 'Pending',
     workerViewed: false
   });
+  
+  // Send WhatsApp notification
+  if (leave) {
+    console.log('Sending WhatsApp notification for leave:', leave._id);
+    
+    sendNewLeaveRequestNotification(leave)
+      .then(result => {
+        if (result.success) {
+          console.log('✅ Leave notification sent successfully, Message ID:', result.messageId);
+        } else {
+          console.error('❌ Failed to send leave notification:', result.error);
+        }
+      })
+      .catch(error => {
+        console.error('❌ Error sending leave notification:', error.message);
+      });
+  }
 
   res.status(201).json(leave);
 });
-
 
 // (The rest of your controller file remains the same)
 
 const updateLeaveStatus = asyncHandler(async (req, res) => {
   const { status, leaveData } = req.body;
 
-  // Validate status
   if (!status || !['Approved', 'Rejected'].includes(status)) {
     res.status(400);
     throw new Error('Please provide a valid status');
   }
 
-  // Check if leave exists
   const leave = await Leave.findById(req.params.id);
   if (!leave) {
     res.status(404);
-    throw new Error('Leave not found');
+    throw new Error('Leave application not found');
   }
 
   const updatedLeave = await Leave.findByIdAndUpdate(
@@ -112,12 +124,18 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
       status,
       workerViewed: false
     },
-    { new: true } // Return the updated document
-  ).populate('worker', 'name department'); // Populate worker info in the response
+    { new: true }
+  );
 
-  // If approved, update the worker's final salary
   if (status === 'Approved') {
-    const workerId = leaveData.worker;
+    const workerId = leaveData.worker?._id;
+    const totalDays = leaveData.totalDays;
+
+    if (!workerId || !totalDays) {
+      res.status(400);
+      throw new Error('Incomplete leave data for salary update');
+    }
+
     const worker = await Worker.findById(workerId);
     if (!worker) {
       res.status(404);
@@ -127,11 +145,10 @@ const updateLeaveStatus = asyncHandler(async (req, res) => {
     const deduction = totalDays * worker.perDaySalary;
     const updatedFinalSalary = Math.max(0, worker.finalSalary - deduction);
 
-    const updateResult = await Worker.updateOne(
+    await Worker.updateOne(
       { _id: workerId },
       { $set: { finalSalary: updatedFinalSalary } }
     );
-
   }
 
   res.json(updatedLeave);
@@ -183,32 +200,6 @@ const markLeavesAsViewedByAdmin = asyncHandler(async (req, res) => {
   res.json({ message: 'All leaves marked as viewed by admin' });
 });
 
-const getAdminLeaves = asyncHandler(async (req, res) => {
-  const subdomain = req.subdomain;
-  const leaves = await Leave.find({ subdomain }).populate('worker', 'name username').sort({ createdAt: -1 });
-  res.json(leaves);
-});
-
-const getWorkerLeaves = asyncHandler(async (req, res) => {
-  const worker = req.worker.id;
-  const leaves = await Leave.find({ worker }).sort({ createdAt: -1 });
-  res.json(leaves);
-});
-
-const viewLeave = asyncHandler(async (req, res) => {
-  const leave = await Leave.findById(req.params.id);
-
-  if (!leave) {
-    res.status(404);
-    throw new Error('Leave not found');
-  }
-
-  leave.workerViewed = true;
-  await leave.save();
-  res.json({ message: 'Leave marked as viewed' });
-});
-
-
 module.exports = {
   getLeaves,
   getMyLeaves,
@@ -217,8 +208,5 @@ module.exports = {
   getLeavesByStatus,
   markLeaveAsViewed,
   markLeavesAsViewedByAdmin,
-  getLeavesByDateRange,
-  viewLeave,
-  getAdminLeaves,
-  getWorkerLeaves,
+  getLeavesByDateRange
 };
