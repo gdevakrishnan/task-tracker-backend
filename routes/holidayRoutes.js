@@ -7,7 +7,9 @@ const {
   updateHoliday,
   deleteHoliday,
   getHolidaysByDateRange,
-  getUpcomingHolidays
+  getUpcomingHolidays,
+  getHolidaysByWorker,
+  isHolidayForWorker
 } = require('../controllers/holidayController');
 
 const { protect } = require('../middleware/authMiddleware');
@@ -31,6 +33,16 @@ router.get('/:subdomain/range', protect, getHolidaysByDateRange);
 // @desc    Get holiday by ID
 // @access  Private/Admin
 router.get('/:subdomain/:id', protect, getHolidayById);
+
+// @route   GET /api/holidays/:subdomain/worker/:workerId
+// @desc    Get holidays for a specific worker
+// @access  Private/Admin
+router.get('/:subdomain/worker/:workerId', protect, getHolidaysByWorker);
+
+// @route   GET /api/holidays/:subdomain/worker/:workerId/date/:date
+// @desc    Check if a specific date is a holiday for a worker
+// @access  Private
+router.get('/:subdomain/worker/:workerId/date/:date', protect, isHolidayForWorker);
 
 // @route   POST /api/holidays
 // @desc    Create a new holiday

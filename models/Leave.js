@@ -12,8 +12,9 @@ const leaveSchema = mongoose.Schema({
   },
   leaveType: {
     type: String,
-    required: [true, 'Please add leave type'],
-    enum: ['Annual Leave', 'Sick Leave', 'Personal Leave']
+    // Updated enum to include the new 'Permission' leave type.
+    enum: ['Annual Leave', 'Sick Leave', 'Personal Leave', 'Permission'],
+    required: [true, 'Please add leave type']
   },
   startDate: {
     type: Date,
@@ -41,6 +42,13 @@ const leaveSchema = mongoose.Schema({
     default: false
   },
   document: {
+    type: String
+  },
+  // NEW FIELDS
+  startTime: {
+    type: String
+  },
+  endTime: {
     type: String
   }
 }, {

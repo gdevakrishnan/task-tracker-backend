@@ -7,7 +7,7 @@ const {
   loginWorker,
   getMe,
   checkAdminInitialization, 
-  subdomainAvailable,
+  subdomainAvailable, 
   requestPasswordResetOtp,
   resetPasswordWithOtp,
   

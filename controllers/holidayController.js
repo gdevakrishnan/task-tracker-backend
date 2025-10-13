@@ -1,5 +1,5 @@
 const asyncHandler = require('express-async-handler');
-const Holiday = require('../models/Holiday'); // Note: Fix typo in model file - should be 'Holiday' not 'Holdiay'
+const Holiday = require('../models/Holiday');
 const Admin = require('../models/Admin');
 
 // @desc    Get all holidays
@@ -21,6 +21,7 @@ const getHolidays = asyncHandler(async (req, res) => {
   }
 
   const holidays = await Holiday.find({ subdomain })
+    .populate('workers', 'name username') // Populate worker details
     .sort({ date: 1 }); // Sort by date ascending
 
   res.json(holidays);
@@ -44,7 +45,8 @@ const getHolidayById = asyncHandler(async (req, res) => {
     throw new Error("Access denied. Admin access required.");
   }
 
-  const holiday = await Holiday.findOne({ _id: id, subdomain });
+  const holiday = await Holiday.findOne({ _id: id, subdomain })
+    .populate('workers', 'name username');
 
   if (!holiday) {
     res.status(404);
@@ -58,7 +60,7 @@ const getHolidayById = asyncHandler(async (req, res) => {
 // @route   POST /api/holidays
 // @access  Private/Admin
 const createHoliday = asyncHandler(async (req, res) => {
-  const { subdomain, holidayDesc, date, reason } = req.body;
+  const { subdomain, holidayDesc, date, reason, appliesTo, workers, isPaid } = req.body;
 
   console.log('REQ BODY:', req.body);
 
@@ -94,8 +96,14 @@ const createHoliday = asyncHandler(async (req, res) => {
     subdomain,
     holidayDesc,
     date,
-    reason
+    reason,
+    appliesTo: appliesTo || 'all', // Default to 'all' for backward compatibility
+    workers: workers || [],
+    isPaid: isPaid !== undefined ? isPaid : true // Default to true for backward compatibility
   });
+
+  // Populate worker details before sending response
+  await holiday.populate('workers', 'name username');
 
   res.status(201).json(holiday);
 });
@@ -104,7 +112,7 @@ const createHoliday = asyncHandler(async (req, res) => {
 // @route   PUT /api/holidays/:id
 // @access  Private/Admin
 const updateHoliday = asyncHandler(async (req, res) => {
-  const { holidayDesc, date, reason } = req.body;
+  const { holidayDesc, date, reason, appliesTo, workers, isPaid } = req.body;
 
   // Check if user is admin
   const user = await Admin.findById(req.user._id).select('-password');
@@ -140,10 +148,16 @@ const updateHoliday = asyncHandler(async (req, res) => {
     {
       holidayDesc: holidayDesc || holiday.holidayDesc,
       date: date || holiday.date,
-      reason: reason || holiday.reason
+      reason: reason || holiday.reason,
+      appliesTo: appliesTo || holiday.appliesTo || 'all',
+      workers: workers || holiday.workers || [],
+      isPaid: isPaid !== undefined ? isPaid : (holiday.isPaid !== undefined ? holiday.isPaid : true)
     },
     { new: true } // Return the updated document
   );
+
+  // Populate worker details before sending response
+  await updatedHoliday.populate('workers', 'name username');
 
   res.json(updatedHoliday);
 });
@@ -201,7 +215,9 @@ const getHolidaysByDateRange = asyncHandler(async (req, res) => {
       $gte: new Date(startDate),
       $lte: new Date(endDate)
     }
-  }).sort({ date: 1 });
+  })
+  .populate('workers', 'name username')
+  .sort({ date: 1 });
 
   res.json(holidays);
 });
@@ -227,9 +243,70 @@ const getUpcomingHolidays = asyncHandler(async (req, res) => {
       $gte: today,
       $lte: thirtyDaysFromNow
     }
-  }).sort({ date: 1 });
+  })
+  .populate('workers', 'name username')
+  .sort({ date: 1 });
 
   res.json(holidays);
+});
+
+// @desc    Get holidays for a specific worker
+// @route   GET /api/holidays/:subdomain/worker/:workerId
+// @access  Private/Admin
+const getHolidaysByWorker = asyncHandler(async (req, res) => {
+  const { subdomain, workerId } = req.params;
+
+  if (!subdomain || subdomain === 'main') {
+    res.status(400);
+    throw new Error("Company name is missing, login again.");
+  }
+
+  // Check if user is admin
+  const user = await Admin.findById(req.user._id).select('-password');
+  if (!user) {
+    res.status(403);
+    throw new Error("Access denied. Admin access required.");
+  }
+
+  const holidays = await Holiday.find({
+    subdomain,
+    $or: [
+      { appliesTo: 'all' }, // Company-wide holidays
+      { workers: workerId } // Specific worker holidays
+    ]
+  })
+  .populate('workers', 'name username')
+  .sort({ date: 1 });
+
+  res.json(holidays);
+});
+
+// @desc    Check if a specific date is a holiday for a worker
+// @route   GET /api/holidays/:subdomain/worker/:workerId/date/:date
+// @access  Private
+const isHolidayForWorker = asyncHandler(async (req, res) => {
+  const { subdomain, workerId, date } = req.params;
+
+  if (!subdomain || subdomain === 'main') {
+    res.status(400);
+    throw new Error("Company name is missing, login again.");
+  }
+
+  const holidayDate = new Date(date);
+
+  const holiday = await Holiday.findOne({
+    subdomain,
+    date: holidayDate,
+    $or: [
+      { appliesTo: 'all' }, // Company-wide holidays
+      { workers: workerId } // Specific worker holidays
+    ]
+  });
+
+  res.json({
+    isHoliday: !!holiday,
+    holiday: holiday || null
+  });
 });
 
 module.exports = {
@@ -239,5 +316,7 @@ module.exports = {
   updateHoliday,
   deleteHoliday,
   getHolidaysByDateRange,
-  getUpcomingHolidays
+  getUpcomingHolidays,
+  getHolidaysByWorker,
+  isHolidayForWorker
 };

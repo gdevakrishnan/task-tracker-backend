@@ -50,7 +50,8 @@ const putAttendance = async (req, res) => {
         const currentDateFormatted = indiaTimezoneDate.format(new Date());
         const currentTimeFormatted = indiaTimezoneTime.format(new Date());
 
-        const lastAttendance = await Attendance.findOne({ rfid, subdomain }).sort({ createdAt: -1 });
+        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
+        const lastAttendance = allAttendances.length > 0 ? allAttendances[allAttendances.length - 1] : null;
 
         let newPresence;
         // Determine the new presence state (IN or OUT)
@@ -64,7 +65,7 @@ const putAttendance = async (req, res) => {
             // --- IMPORTANT: Logic for handling missed out-punches ---
             // If the new punch is an 'IN' and the last recorded punch was also an 'IN'
             // but on a *previous day*, it means the worker missed their 'OUT' punch yesterday.
-            const lastPunchDateFormatted = indiaTimezoneDate.format(lastAttendance.date);
+            const lastPunchDateFormatted = lastAttendance.date;
 
             if (newPresence === true && lastAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted) {
                 // This scenario indicates a missed OUT punch for the previous day.
@@ -74,7 +75,7 @@ const putAttendance = async (req, res) => {
                 // For now, using a default value, but ideally, you'd fetch it from Settings:
                 // const settings = await Settings.findOne({ subdomain });
                 // const defaultEndOfDayTime = settings?.batches?.[0]?.to || '19:00:00 PM'; // Example: get from first batch or default
-                const defaultEndOfDayTime = '19:00:00 PM'; // Default to 7:00 PM for missed out-punch
+                const defaultEndOfDayTime = '07:00:00 PM'; // Default to 7:00 PM for missed out-punch
 
                 await Attendance.create({
                     name: worker.name,
@@ -158,11 +159,11 @@ const putRfidAttendance = async (req, res) => {
         const currentTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
 
         // login again if this is the first attendance for the worker on the current date
-        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ createdAt: -1 });
+        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
 
         let presence = true;
         if (allAttendances.length > 0) {
-            const lastAttendance = allAttendances[0];
+            const lastAttendance = allAttendances[allAttendances.length - 1];
             presence = !lastAttendance.presence;
         }
 
@@ -229,7 +230,7 @@ const getWorkerAttendance = async (req, res) => {
             throw new Error('RFID is required');
         }
 
-        const workerAttendance = await Attendance.find({ rfid, subdomain });
+        const workerAttendance = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
 
         res.status(200).json({ message: 'Worker attendance data retrieved successfully', attendance: workerAttendance });
     } catch (error) {

@@ -17,12 +17,14 @@ const createWorker = asyncHandler(async (req, res) => {
     const name = req.body.name ? req.body.name.trim() : '';
     const username = req.body.username ? req.body.username.trim() : '';
     const rfid = req.body.rfid ? req.body.rfid.trim() : '';
-    const salary = req.body.salary ? Number(req.body.salary.trim()) : '';
-    const finalSalary = req.body.salary ? Number(req.body.salary.trim()) : '';
+    // FIX: Convert salary to string before calling trim(), then back to number
+    const salary = req.body.salary ? Number(String(req.body.salary).trim()) : 0;
+    const finalSalary = req.body.salary ? Number(String(req.body.salary).trim()) : 0;
     const password = req.body.password ? req.body.password.trim() : '';
     const subdomain = req.body.subdomain ? req.body.subdomain.trim() : '';
     const department = req.body.department ? req.body.department.trim() : '';
     const photo = req.body.photo ? req.body.photo.trim() : '';
+    const batch = req.body.batch ? req.body.batch.trim() : ''; // ADDED THIS
     let perDaySalary = 0;
 
     if (salary <= 0) {
@@ -88,44 +90,9 @@ const createWorker = asyncHandler(async (req, res) => {
       password: hashedPassword,
       department: departmentDoc._id,
       photo: photo || '',
+      batch, // ADDED THIS
       totalPoints: 0
     });
-
-    // // Generate QR code for the RFID
-    // const qrCodeDataUrl = await QRCode.toDataURL(rfid);
-
-    // // Configure the email transporter
-    // const transporter = nodemailer.createTransport({
-    //   service: 'gmail', // Use your email service provider
-    //   auth: {
-    //     user: process.env.EMAIL_USER, // Your email address
-    //     pass: process.env.EMAIL_PASS, // Your email password or app-specific password
-    //   },
-    // });
-
-    // // Email content
-    // const mailOptions = {
-    //   from: process.env.EMAIL_USER,
-    //   to: email,
-    //   subject: `Welcome to ${subdomain}!`,
-    //   html: `
-    //   <h1>Welcome to ${subdomain}, ${name}!</h1>
-    //   <p>We are excited to have you on board. Your unique RFID QR code: <b>${rfid}</b></p>
-    //   <p>Please keep this QR code safe as it will be used for identification purposes.</p>
-    //   <p>Best regards,<br/>The ${subdomain} Team</p>
-    //   `,
-    //   attachments: [
-    //     {
-    //       filename: 'qr-code.png',
-    //       content: qrCodeDataUrl.split('base64,')[1],
-    //       encoding: 'base64',
-    //       cid: 'qrCodeImage', // Content ID for inline image
-    //     },
-    //   ],
-    // };
-
-    // // Send the email
-    // await transporter.sendMail(mailOptions);
 
     res.status(201).json({
       _id: worker._id,
@@ -137,7 +104,8 @@ const createWorker = asyncHandler(async (req, res) => {
       rfid: worker.rfid,
       subdomain: worker.subdomain,
       department: departmentDoc.name,
-      photo: worker.photo
+      photo: worker.photo,
+      batch: worker.batch // ADDED THIS
     });
 
   } catch (error) {
@@ -146,7 +114,6 @@ const createWorker = asyncHandler(async (req, res) => {
     throw new Error(error.message || 'Failed to create worker');
   }
 });
-
 // Generate an unique RFID
 const generateUniqueRFID = async () => {
   const generateRFID = () => {
@@ -265,7 +232,7 @@ const updateWorker = asyncHandler(async (req, res) => {
       throw new Error('Worker not found');
     }
 
-    const { name, username, salary, department, password, photo } = req.body;
+    const { name, username, salary, department, password, photo, batch } = req.body; // ADDED batch
     const updateData = {};
 
     // Validate department if provided
@@ -304,6 +271,11 @@ const updateWorker = asyncHandler(async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       updateData.password = await bcrypt.hash(password, salt);
     }
+    
+    // ADDED: Handle batch update
+    if (batch) {
+        updateData.batch = batch;
+    }
 
     // Update salary-related fields if salary is provided
     if (salary) {
@@ -333,7 +305,8 @@ const updateWorker = asyncHandler(async (req, res) => {
       perDaySalary: updatedWorker.perDaySalary,
       finalSalary: updatedWorker.finalSalary,
       department: updatedWorker.department.name,
-      photo: updatedWorker.photo
+      photo: updatedWorker.photo,
+      batch: updatedWorker.batch // ADDED this to the response
     });
   } catch (error) {
     console.error('Update Worker Error:', error);

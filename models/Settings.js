@@ -120,11 +120,11 @@ const settingsSchema = mongoose.Schema({
         },
         lunchFrom: {
           type: String,
-          default: '12:00'
+          default: '13:30'
         },
         lunchTo: {
           type: String,
-          default: '13:00'
+          default: '14:30'
         },
         isLunchConsider: {
           type: Boolean,
@@ -137,8 +137,8 @@ const settingsSchema = mongoose.Schema({
         batchName: 'Full Time',
         from: '09:00',
         to: '19:00',
-        lunchFrom: '12:00',
-        lunchTo: '13:00',
+        lunchFrom: '13:30',
+        lunchTo: '14:30',
         isLunchConsider: false
       }
     ]

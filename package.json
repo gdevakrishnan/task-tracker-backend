@@ -6,7 +6,8 @@
     "main": "server.js",
     "scripts": {
         "start": "nodemon server.js",
-        "dev": "nodemon server.js"
+        "dev": "nodemon server.js",
+        "migrate:holidays": "node migrations/updateHolidaysForEmployeeSpecific.js"
     },
     "dependencies": {
         "@mtproto/core": "^6.3.0",

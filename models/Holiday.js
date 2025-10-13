@@ -16,9 +16,23 @@ const holidaySchema = mongoose.Schema({
   reason: {
     type: String,
     required: [true, 'Please add a reason']
+  },
+  // New fields for employee-specific holidays
+  appliesTo: {
+    type: String,
+    enum: ['all', 'specific'],
+    default: 'all'
+  },
+  workers: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Worker'
+  }],
+  isPaid: {
+    type: Boolean,
+    default: true
   }
 }, {
   timestamps: true
 });
 
-module.exports = mongoose.model('Holdiay', holidaySchema);
+module.exports = mongoose.model('Holiday', holidaySchema);

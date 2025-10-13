@@ -24,6 +24,9 @@ const workerSchema = mongoose.Schema({
     type: String,
     required: [true, 'Please add a password']
   },
+    batch: { // ADD THIS
+    type: String
+  },
   department: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Department',
@@ -56,6 +59,30 @@ const workerSchema = mongoose.Schema({
   perDaySalary: {
     type: Number,
     default: 0
+  },
+  bonuses: {
+    type: [{
+      amount: Number,
+      fromDate: Date,
+      toDate: Date,
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    default: []
+  },
+  fines: {
+    type: [{
+      amount: Number,
+      date: Date,
+      reason: String,
+      createdAt: {
+        type: Date,
+        default: Date.now
+      }
+    }],
+    default: []
   }
 }, {
   timestamps: true
