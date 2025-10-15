@@ -65,7 +65,14 @@ const putAttendance = async (req, res) => {
             // --- IMPORTANT: Logic for handling missed out-punches ---
             // If the new punch is an 'IN' and the last recorded punch was also an 'IN'
             // but on a *previous day*, it means the worker missed their 'OUT' punch yesterday.
-            const lastPunchDateFormatted = lastAttendance.date;
+            
+            // Convert lastAttendance.date to formatted string for comparison
+            const lastPunchDateFormatted = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(new Date(lastAttendance.date));
 
             if (newPresence === true && lastAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted) {
                 // This scenario indicates a missed OUT punch for the previous day.
@@ -158,13 +165,47 @@ const putRfidAttendance = async (req, res) => {
         const currentDate = indiaTimezone.format(new Date());
         const currentTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
 
-        // login again if this is the first attendance for the worker on the current date
+        // Get all attendance records for this worker
         const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
 
         let presence = true;
         if (allAttendances.length > 0) {
             const lastAttendance = allAttendances[allAttendances.length - 1];
+            
+            // Convert lastAttendance.date to formatted string for comparison
+            const lastPunchDateFormatted = new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).format(new Date(lastAttendance.date));
+            
+            const currentDateFormatted = indiaTimezone.format(new Date());
+            
+            // Toggle presence (IN -> OUT, OUT -> IN)
             presence = !lastAttendance.presence;
+            
+            // Handle missed out-punches for the putRfidAttendance function as well
+            if (presence === true && lastAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted) {
+                // Missed OUT punch from previous day
+                const defaultEndOfDayTime = '07:00:00 PM';
+                
+                await Attendance.create({
+                    name: worker.name,
+                    username: worker.username,
+                    rfid,
+                    subdomain,
+                    department: department._id,
+                    departmentName: department.name,
+                    photo: worker.photo,
+                    date: lastAttendance.date,
+                    time: defaultEndOfDayTime,
+                    presence: false,
+                    worker: worker._id,
+                    isMissedOutPunch: true
+                });
+                console.log(`Auto-generated OUT for ${worker.name} on ${lastPunchDateFormatted} due to missed punch.`);
+            }
         }
 
         // Insert attendance record
