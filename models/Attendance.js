@@ -31,8 +31,7 @@ const attendanceSchema = mongoose.Schema({
         default: ''
     },
     date: {
-        type: Date,
-        default: () => new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
+        type: String, // Changed from Date to String to match controller formatting
         required: [true, 'Date is required']
     },
     time: {

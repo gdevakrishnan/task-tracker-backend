@@ -50,33 +50,52 @@ const putAttendance = async (req, res) => {
         const currentDateFormatted = indiaTimezoneDate.format(new Date());
         const currentTimeFormatted = indiaTimezoneTime.format(new Date());
 
-        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
-        const lastAttendance = allAttendances.length > 0 ? allAttendances[allAttendances.length - 1] : null;
+        // Get all attendance records and sort them properly by converting time to 24-hour format for comparison
+        const allAttendances = await Attendance.find({ rfid, subdomain });
+        
+        // Sort by date and time (proper chronological sorting)
+        const sortedAttendances = allAttendances.sort((a, b) => {
+            // First compare by date
+            if (a.date !== b.date) {
+                return a.date.localeCompare(b.date);
+            }
+            
+            // If dates are the same, compare by time (convert to 24-hour format for proper sorting)
+            const timeA = convertTo24Hour(a.time);
+            const timeB = convertTo24Hour(b.time);
+            return timeA.localeCompare(timeB);
+        });
+        
+        // Determine if this should be an IN or OUT punch based on count
+        // Odd count (1, 3, 5, ...) = IN punch
+        // Even count (2, 4, 6, ...) = OUT punch
+        const todayAttendances = sortedAttendances.filter(a => a.date === currentDateFormatted);
+        const totalTodayPunches = todayAttendances.length;
+        
+        // For the new punch:
+        // If totalTodayPunches is even (0, 2, 4, ...), this should be an IN punch (presence = true)
+        // If totalTodayPunches is odd (1, 3, 5, ...), this should be an OUT punch (presence = false)
+        let newPresence = (totalTodayPunches % 2 === 0);
+        
+        console.log(`Worker: ${worker.name}, RFID: ${rfid}`);
+        console.log(`Current date: ${currentDateFormatted}, Current time: ${currentTimeFormatted}`);
+        console.log(`Total attendances: ${allAttendances.length}, Today's punches: ${totalTodayPunches}`);
+        console.log(`New punch will be: ${newPresence ? 'IN' : 'OUT'}`);
 
-        let newPresence;
-        // Determine the new presence state (IN or OUT)
-        if (!lastAttendance) {
-            // First punch for this worker, so it's an IN
-            newPresence = true;
-        } else {
-            // Default behavior: toggle presence (IN -> OUT, OUT -> IN)
-            newPresence = !lastAttendance.presence;
-
-            // --- IMPORTANT: Logic for handling missed out-punches ---
-            // If the new punch is an 'IN' and the last recorded punch was also an 'IN'
-            // but on a *previous day*, it means the worker missed their 'OUT' punch yesterday.
-            const lastPunchDateFormatted = lastAttendance.date;
-
-            if (newPresence === true && lastAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted) {
-                // This scenario indicates a missed OUT punch for the previous day.
-                // Create an auto-generated OUT record for the missed day.
-
-                // You might want to get this time from your Settings model (e.g., end of working day)
-                // For now, using a default value, but ideally, you'd fetch it from Settings:
-                // const settings = await Settings.findOne({ subdomain });
-                // const defaultEndOfDayTime = settings?.batches?.[0]?.to || '19:00:00 PM'; // Example: get from first batch or default
-                const defaultEndOfDayTime = '07:00:00 PM'; // Default to 7:00 PM for missed out-punch
-
+        // Check for missed punches from previous days
+        // Get the most recent attendance from a previous day
+        const previousDayAttendances = sortedAttendances.filter(a => a.date !== currentDateFormatted);
+        if (previousDayAttendances.length > 0) {
+            const lastPreviousAttendance = previousDayAttendances[previousDayAttendances.length - 1];
+            const lastPunchDateFormatted = lastPreviousAttendance.date;
+            
+            // If the last punch was an IN punch and it was on a previous day, create a missed OUT punch
+            if (lastPreviousAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted && !lastPreviousAttendance.isMissedOutPunch) {
+                console.log("Creating missed OUT punch for previous day");
+                
+                // Create missed OUT punch at end of work day
+                const defaultEndOfDayTime = '07:00:00 PM';
+                
                 await Attendance.create({
                     name: worker.name,
                     username: worker.username,
@@ -85,12 +104,13 @@ const putAttendance = async (req, res) => {
                     department: department._id,
                     departmentName: department.name,
                     photo: worker.photo,
-                    date: lastAttendance.date, // Use the date of the missed IN punch
+                    date: lastPreviousAttendance.date,
                     time: defaultEndOfDayTime,
-                    presence: false, // This marks it as an OUT punch
+                    presence: false, // OUT punch
                     worker: worker._id,
-                    isMissedOutPunch: true // Flag this as an auto-generated / missed out punch
+                    isMissedOutPunch: true
                 });
+                
                 console.log(`Auto-generated OUT for ${worker.name} on ${lastPunchDateFormatted} due to missed punch.`);
             }
         }
@@ -110,6 +130,8 @@ const putAttendance = async (req, res) => {
             worker: worker._id
         });
 
+        console.log(`Created new attendance: presence=${newPresence}, date=${currentDateFormatted}, time=${currentTimeFormatted}`);
+
         res.status(201).json({
             message: newPresence ? 'Attendance marked as in' : 'Attendance marked as out',
             attendance: newAttendance
@@ -119,6 +141,25 @@ const putAttendance = async (req, res) => {
         res.status(500).json({ message: 'Server error', error: error.message });
     }
 };
+
+// Helper function to convert 12-hour format to 24-hour format for proper sorting
+function convertTo24Hour(time12h) {
+    if (!time12h) return '00:00:00';
+    
+    const [time, modifier] = time12h.split(' ');
+    if (!time || !modifier) return time12h;
+    
+    let [hours, minutes, seconds] = time.split(':');
+    if (modifier === 'PM' && hours !== '12') {
+        hours = parseInt(hours, 10) + 12;
+    }
+    if (modifier === 'AM' && hours === '12') {
+        hours = '00';
+    }
+    
+    return `${hours.toString().padStart(2, '0')}:${minutes}:${seconds}`;
+}
+
 // @desc   Update or create attendance record for a worker
 // @route   PUT /api/rfid-attendance
 // @access  Private
@@ -148,23 +189,86 @@ const putRfidAttendance = async (req, res) => {
         }
 
         // Get the current date and time in 'Asia/Kolkata' timezone
-        const indiaTimezone = new Intl.DateTimeFormat('en-CA', {
+        const indiaTimezoneDate = new Intl.DateTimeFormat('en-CA', {
             timeZone: 'Asia/Kolkata',
             year: 'numeric',
             month: '2-digit',
             day: '2-digit'
         });
+        const indiaTimezoneTime = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: true
+        });
 
-        const currentDate = indiaTimezone.format(new Date());
-        const currentTime = new Date().toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata' });
+        const currentDateFormatted = indiaTimezoneDate.format(new Date());
+        const currentTimeFormatted = indiaTimezoneTime.format(new Date());
 
-        // login again if this is the first attendance for the worker on the current date
-        const allAttendances = await Attendance.find({ rfid, subdomain }).sort({ date: 1, time: 1 });
+        // Get all attendance records and sort them properly by converting time to 24-hour format for comparison
+        const allAttendances = await Attendance.find({ rfid, subdomain });
+        
+        // Sort by date and time (proper chronological sorting)
+        const sortedAttendances = allAttendances.sort((a, b) => {
+            // First compare by date
+            if (a.date !== b.date) {
+                return a.date.localeCompare(b.date);
+            }
+            
+            // If dates are the same, compare by time (convert to 24-hour format for proper sorting)
+            const timeA = convertTo24Hour(a.time);
+            const timeB = convertTo24Hour(b.time);
+            return timeA.localeCompare(timeB);
+        });
+        
+        // Determine if this should be an IN or OUT punch based on count
+        // Odd count (1, 3, 5, ...) = IN punch
+        // Even count (2, 4, 6, ...) = OUT punch
+        const todayAttendances = sortedAttendances.filter(a => a.date === currentDateFormatted);
+        const totalTodayPunches = todayAttendances.length;
+        
+        // For the new punch:
+        // If totalTodayPunches is even (0, 2, 4, ...), this should be an IN punch (presence = true)
+        // If totalTodayPunches is odd (1, 3, 5, ...), this should be an OUT punch (presence = false)
+        let newPresence = (totalTodayPunches % 2 === 0);
+        
+        console.log(`RFID Worker: ${worker.name}, RFID: ${rfid}, Subdomain: ${subdomain}`);
+        console.log(`Current date: ${currentDateFormatted}, Current time: ${currentTimeFormatted}`);
+        console.log(`Total RFID attendances: ${allAttendances.length}, Today's punches: ${totalTodayPunches}`);
+        console.log(`New RFID punch will be: ${newPresence ? 'IN' : 'OUT'}`);
 
-        let presence = true;
-        if (allAttendances.length > 0) {
-            const lastAttendance = allAttendances[allAttendances.length - 1];
-            presence = !lastAttendance.presence;
+        // Check for missed punches from previous days
+        // Get the most recent attendance from a previous day
+        const previousDayAttendances = sortedAttendances.filter(a => a.date !== currentDateFormatted);
+        if (previousDayAttendances.length > 0) {
+            const lastPreviousAttendance = previousDayAttendances[previousDayAttendances.length - 1];
+            const lastPunchDateFormatted = lastPreviousAttendance.date;
+            
+            // If the last punch was an IN punch and it was on a previous day, create a missed OUT punch
+            if (lastPreviousAttendance.presence === true && lastPunchDateFormatted !== currentDateFormatted && !lastPreviousAttendance.isMissedOutPunch) {
+                console.log("Creating missed OUT punch for previous day (RFID)");
+                
+                // Create missed OUT punch at end of work day
+                const defaultEndOfDayTime = '07:00:00 PM';
+                
+                await Attendance.create({
+                    name: worker.name,
+                    username: worker.username,
+                    rfid,
+                    subdomain,
+                    department: department._id,
+                    departmentName: department.name,
+                    photo: worker.photo,
+                    date: lastPreviousAttendance.date,
+                    time: defaultEndOfDayTime,
+                    presence: false, // OUT punch
+                    worker: worker._id,
+                    isMissedOutPunch: true
+                });
+                
+                console.log(`Auto-generated OUT for ${worker.name} on ${lastPunchDateFormatted} due to missed punch (RFID).`);
+            }
         }
 
         // Insert attendance record
@@ -176,14 +280,16 @@ const putRfidAttendance = async (req, res) => {
             department: department._id,
             departmentName: department.name,
             photo: worker.photo,
-            date: currentDate,
-            time: currentTime,
-            presence,
+            date: currentDateFormatted,
+            time: currentTimeFormatted,
+            presence: newPresence,
             worker: worker._id
         });
 
+        console.log(`Created new RFID attendance: presence=${newPresence}, date=${currentDateFormatted}, time=${currentTimeFormatted}`);
+
         res.status(201).json({
-            message: presence ? 'Attendance marked as in' : 'Attendance marked as out',
+            message: newPresence ? 'Attendance marked as in' : 'Attendance marked as out',
             attendance: newAttendance
         });
     } catch (error) {
